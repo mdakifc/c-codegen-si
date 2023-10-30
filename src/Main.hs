@@ -10,8 +10,6 @@ import Language.C.Pretty (prettyUsingInclude)
 import Data.ByteString qualified as BS
 import System.Environment (getArgs)
 
--- filepath = "configs/input1.i"
-
 main :: IO ()
 main = do
     args <- getArgs
@@ -19,5 +17,5 @@ main = do
     inp <- BS.readFile filepath
     -- pPrint $ parseC inp nopos
     case (parseC inp (initPos filepath)) of
-        Right a -> pPrint a
+        Right a -> pPrint . fmap (const 0) $ a
         Left v -> pPrint v
