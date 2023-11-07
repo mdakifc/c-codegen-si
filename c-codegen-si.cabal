@@ -63,7 +63,7 @@ executable c-codegen-si
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules:    Gen
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -74,6 +74,11 @@ executable c-codegen-si
         , language-c ^>=0.9.2
         , bytestring ^>=0.11.3.1
         , pretty-simple ^>=4.1.2.0
+        , random ^>= 1.2.1.1
+        , transformers ^>= 0.6.1.1
+        , containers ^>= 0.6.8
+        , vector ^>= 0.13.1.0
+
 
     -- Directories containing source files.
     hs-source-dirs:   src
