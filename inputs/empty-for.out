@@ -1,0 +1,145 @@
+CTranslUnit
+    [ CFDefExt
+        ( CFunDef
+            [ CTypeSpec
+                ( CIntType
+                    ( NodeInfo
+                        ( "inputs/empty-for.c": line 1 )
+                        (
+                            ( "inputs/empty-for.c": line 1 )
+                        , 3
+                        )
+                        ( Name
+                            { nameId = 1 }
+                        )
+                    )
+                )
+            ]
+            ( CDeclr
+                ( Just
+                    ( Ident "main" 232419565
+                        ( NodeInfo
+                            ( "inputs/empty-for.c": line 1 )
+                            (
+                                ( "inputs/empty-for.c": line 1 )
+                            , 4
+                            )
+                            ( Name
+                                { nameId = 0 }
+                            )
+                        )
+                    )
+                )
+                [ CFunDeclr
+                    ( Right
+                        ( []
+                        , False
+                        )
+                    ) []
+                    ( NodeInfo
+                        ( "inputs/empty-for.c": line 1 )
+                        (
+                            ( "inputs/empty-for.c": line 1 )
+                        , 1
+                        )
+                        ( Name
+                            { nameId = 3 }
+                        )
+                    )
+                ] Nothing []
+                ( NodeInfo
+                    ( "inputs/empty-for.c": line 1 )
+                    (
+                        ( "inputs/empty-for.c": line 1 )
+                    , 4
+                    )
+                    ( Name
+                        { nameId = 2 }
+                    )
+                )
+            ) []
+            ( CCompound []
+                [ CBlockStmt
+                    ( CFor ( Left Nothing ) Nothing Nothing
+                        ( CExpr Nothing
+                            ( NodeInfo
+                                ( "inputs/empty-for.c": line 2 )
+                                (
+                                    ( "inputs/empty-for.c": line 2 )
+                                , 1
+                                )
+                                ( Name
+                                    { nameId = 4 }
+                                )
+                            )
+                        )
+                        ( NodeInfo
+                            ( "inputs/empty-for.c": line 2 )
+                            (
+                                ( "inputs/empty-for.c": line 2 )
+                            , 1
+                            )
+                            ( Name
+                                { nameId = 5 }
+                            )
+                        )
+                    )
+                , CBlockStmt
+                    ( CFor ( Left Nothing ) Nothing Nothing
+                        ( CExpr Nothing
+                            ( NodeInfo
+                                ( "inputs/empty-for.c": line 3 )
+                                (
+                                    ( "inputs/empty-for.c": line 3 )
+                                , 1
+                                )
+                                ( Name
+                                    { nameId = 6 }
+                                )
+                            )
+                        )
+                        ( NodeInfo
+                            ( "inputs/empty-for.c": line 3 )
+                            (
+                                ( "inputs/empty-for.c": line 3 )
+                            , 1
+                            )
+                            ( Name
+                                { nameId = 7 }
+                            )
+                        )
+                    )
+                ]
+                ( NodeInfo
+                    ( "inputs/empty-for.c": line 1 )
+                    (
+                        ( "inputs/empty-for.c": line 4 )
+                    , 1
+                    )
+                    ( Name
+                        { nameId = 8 }
+                    )
+                )
+            )
+            ( NodeInfo
+                ( "inputs/empty-for.c": line 1 )
+                (
+                    ( "inputs/empty-for.c": line 4 )
+                , 1
+                )
+                ( Name
+                    { nameId = 9 }
+                )
+            )
+        )
+    ]
+    ( NodeInfo
+        ( "inputs/empty-for.c": line 1 )
+        (
+            ( "inputs/empty-for.c": line 4 )
+        , 1
+        )
+        ( Name
+            { nameId = 10 }
+        )
+    )

@@ -6,51 +6,99 @@ import Data.Map qualified as Map
 import Data.ByteString qualified as BS
 import Control.Monad.Trans.State
 import Data.Vector qualified as V
+import Language.C.Data (Name (..), Ident)
 
 -- TODO: Change the storage
 data CType = CInt
     deriving (Eq, Show)
 
-type MultiDimensionalArrays = Map.Map BS.ByteString (V.Vector Int)
-type IndexVars = Map.Map BS.ByteString CType
-type Singletons = Map.Map BS.ByteString CType -- TODO: Ints for now
+type MultiDimensionalArrays = Map.Map BS.ByteString (Ident, (V.Vector Int))
+type IndexVars = Map.Map BS.ByteString (Ident, CType)
+type Singletons = Map.Map BS.ByteString (Ident, CType) -- TODO: Ints for now
 
-data Meta = Meta 
-  { maxGlobals :: Int -- Currently, only arrays are generated globally
-  , minSize :: Int
-  , maxSize :: Int
+data SProg = SProg
+  { 
+    -- Potentially Constant
+    maxGlobals :: Int -- Currently, arrays are generated globally
   , maxDims :: Int
+  , sizeRange :: (Int, Int)
+  , maxSize :: Int
   , maxFuncDepth :: Int
   , maxLoopDepth :: Int
+    -- Variable
+  , generator :: StdGen
+  , mDimArrs :: MultiDimensionalArrays
+  , indexVars :: IndexVars
+  , singletons :: Singletons
+  , nId :: Int
   }
   deriving (Eq, Show)
 
--- TODO: Potentially change it to ReaderT and State with Meta and Scope data types
---
---
---
-data ScopeMeta = ScopeMeta 
-  { variables :: (MultiDimensionalArrays, IndexVars, Singletons) -- Can be modified
-  , meta :: Meta -- Should be a Reader
-  , generator :: StdGen
-  }
- deriving (Show, Eq)
-
-type GState a = State ScopeMeta a
-
+type GState a = State SProg a
 
 execRandGen :: UniformRange a => (a,a) -> GState a
 execRandGen r = do
-    s <- get
-    let g = generator s
-        (a, g') = uniformR r g
-    put $ ScopeMeta (variables s) (meta s) g'
-    pure a
+  sprog <- get
+  let g = generator sprog
+      (a, g') = uniformR r g
+  put $ sprog { generator = g' }
+  pure a
 
-updateArrs :: MultiDimensionalArrays -> (MultiDimensionalArrays, IndexVars, Singletons) -> (MultiDimensionalArrays, IndexVars, Singletons)
-updateArrs m1 (m2, i, s) = (Map.union m1 m2, i, s)
-updateIndexVars :: IndexVars -> (MultiDimensionalArrays, IndexVars, Singletons) -> (MultiDimensionalArrays, IndexVars, Singletons)
-updateIndexVars i1 (m, i2, s) = (m, Map.union i1 i2, s)
-updateSingletons :: Singletons -> (MultiDimensionalArrays, IndexVars, Singletons) -> (MultiDimensionalArrays, IndexVars, Singletons)
-updateSingletons s1 (m, i, s2) = (m, i, Map.union s1 s2)
+updateGen :: StdGen -> SProg -> SProg
+updateGen g' prev = prev { generator = g' }
 
+updateArrs :: MultiDimensionalArrays -> GState ()
+updateArrs m' = do
+  prev <- get
+  put $ prev { mDimArrs = Map.union m' (mDimArrs prev) }
+
+updateSingletons :: Singletons -> GState ()
+updateSingletons m' = do
+  prev <- get
+  put $ prev { singletons = Map.union m' (singletons prev) }
+
+updateIndexVars :: IndexVars -> GState ()
+updateIndexVars m' = do
+  prev <- get
+  put $ prev { indexVars = Map.union m' (indexVars prev) }
+
+deleteIndexVar :: BS.ByteString -> GState ()
+deleteIndexVar name = do
+  prev <- get
+  put $ prev { indexVars = Map.delete name (indexVars prev) }
+
+getId :: GState Name
+getId = do
+  sprog <- get
+  let n = nId sprog
+  put $ sprog { nId = n+1 }
+  pure $ Name n
+    
+
+chooseFromVMap :: (SProg -> Map.Map k (a,b)) -> GState a
+chooseFromVMap f = do
+  mp <- get >>= (pure . f)
+  let n = Map.size mp
+  i <- execRandGen (0, n-1)
+  pure . fst . snd $ Map.elemAt i mp
+
+--------------------------------------------------------------------------------
+------------------------------------TEST----------------------------------------
+--------------------------------------------------------------------------------
+
+config :: StdGen -> SProg
+config g = 
+  SProg { 
+    maxGlobals = 5
+  , maxDims = 2
+  , sizeRange = (100, 1000)
+  , maxSize = 1000
+  , maxFuncDepth = 500
+  , maxLoopDepth = 5
+    -- Variable
+  , generator = g
+  , mDimArrs = mempty
+  , indexVars = mempty
+  , singletons = mempty
+  , nId = 0
+  }
