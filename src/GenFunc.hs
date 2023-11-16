@@ -1,19 +1,20 @@
 module GenFunc where
 
 import Control.Applicative ((<|>))
+import Common
+import CommonGen
+import Data.IntMap qualified as IntMap
+import Data.Maybe (fromJust)
 import Data.Traversable
+import Data.Vector qualified as V
 import Control.Monad
 import Control.Monad.Trans.State
-import Language.C.Data.Name (Name (..))
+import GenVectorizable
 import Language.C.Data.Ident
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Position (nopos)
 import Language.C.Syntax.AST
-import Common
-import CommonGen
-import Data.Vector qualified as V
-import Data.IntMap qualified as IntMap
-import Data.Maybe (fromJust)
+import Language.C.Syntax.Constants
 
 {-
 Goal:
@@ -33,26 +34,47 @@ Goal:
 -}
 
 
-type FuncNo = Name
+{-
+   Generate a function call block as:
+   ```
+   {
+      int p1, ..., pn;
+      scanf("%d %d .. %d", &p1, ..., &pn);
+      fm(p1, ..., pn);
+   }
+   ```
+-}
+genFuncCallBlock :: StdFunctions -> Ident -> Parameters -> GState CStat
+genFuncCallBlock stdFunctionIdents fnIdent params = do
+  let argumentIdents = IntMap.elems params
+  decls :: [CBlockItem] <- ((CBlockDecl <$>) <$>) . for argumentIdents $ \pIdent -> do
+    pure $ constructSingleton pIdent DInt Nothing
+  let 
+    -- Call to scanf
+    scanfCall :: CBlockItem = CBlockStmt  . flip CExpr undefNode . Just $ constructScanf stdFunctionIdents argumentIdents
+    -- Function call
+    fnCall :: CBlockItem = CBlockStmt . flip CExpr undefNode . Just $
+      CCall (CVar fnIdent undefNode) (flip CVar undefNode <$> argumentIdents) undefNode
+  -- reset singletons
+  modify' (\s -> s { singletons = mempty })
+  pure $ CCompound [] (decls ++ [scanfCall, fnCall]) undefNode
 
 genFunc :: GState CFunDef
 genFunc = do
     cNameId <- getId
-    nf <- gets nFunctions
-    prevSProg <- get
+    key <- gets (IntMap.size . functions)
 
     -- Generate the body
     body <- genFuncBody
     params <- gets parameters
     let
-        name = "f" ++ show nf
+        name = "f" ++ show key
         ident = mkIdent nopos name cNameId
         funcDef = constructFunc ident params body
 
     -- Remove the local scope
-    put $ prevSProg { nFunctions = nFunctions prevSProg + 1 }
+    popFunctionScope key ident
     pure funcDef
-    
 
 constructFunc :: Ident -> Parameters -> CStat -> CFunDef
 constructFunc ident params body = 
@@ -91,7 +113,8 @@ constructParams params = (\ident -> constructSingleton ident DInt Nothing) <$> I
 genFuncBody :: GState CStat
 genFuncBody = do
   -- For each type:
-  topStats :: [[CBlockItem]] <- for ([minBound .. minBound] :: [DType]) $ \dtype -> do
+  targetDTypeValues <- gets targetDTypes
+  topStats :: [[CBlockItem]] <- for targetDTypeValues $ \dtype -> do
     -- Generate Singletons
     nSingletons <- execRandGen (2, 5)
     singletonDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genSingletons dtype nSingletons
@@ -105,9 +128,11 @@ genFuncBody = do
     indexDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genIndexVars nIndexVars
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
+    -- TODO: Wrap with timing call
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
+  body :: [CBlockItem] <- (fmap CBlockStmt <$>) $ replicateM 4 genVectorizableForForward
     -- pure $ concatMap CBlockDecl [singletonDecls]
-  pure $ CCompound [] (concat topStats) undefNode
+  pure $ CCompound [] (concat topStats ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)
@@ -127,7 +152,7 @@ genAllocateAndInitialize dtype key = do
               pIdent = mkIdent nopos name cNameId
           updateParams nParam pIdent
           pure $ Just pIdent
-      Right (Just _) -> undefined -- should not be the case, since at this point any heap allocated does not have param ids
+      Right (Just _) -> error "Partially defined Array." -- should not be the case, since at this point any heap allocated does not have param ids
   let dims' = zipWith (\pIdent dim -> fmap (pIdent <|>) dim) paramIdents dims
   -- Update the dimensions of the array
   updateArrs dtype key (dims' <$ arrSpec)
@@ -192,7 +217,7 @@ constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIde
     --    - i.e. construct a for loop with `indexIdent` and recurse with updated partialArrExpr
     indexExpr = CVar indexIdent undefNode
     initExpr :: CExpr = CAssign CAssignOp indexExpr (constructConstExpr 0) undefNode
-    conditionExpr :: CExpr = 
+    conditionExpr :: CExpr =
       let
         condLhs = indexExpr
         condRhs =
@@ -246,6 +271,12 @@ constructMalloc stdFunctionIdents mDtype eSize =
       expr = CBinary CMulOp lhs rhs undefNode
   in CCall (CVar mallocIdent undefNode) [expr] undefNode
 
+constructScanf :: StdFunctions -> [Ident] -> CExpr
+constructScanf stdFunctionIdents varIdents = 
+  let scanfIdent :: Ident = stdFunctionIdents V.! fromEnum CScanf
+      formatString :: CExpr = CConst . flip CStrConst undefNode . cString . unwords $ replicate (length varIdents) "%d"
+      arguments :: [CExpr] = flip (CUnary CAdrOp) undefNode . flip CVar undefNode <$> varIdents
+  in CCall (CVar scanfIdent undefNode) (formatString:arguments) undefNode
 
 -- Well it is not guaranteed by the C standard that all pointer sizes are equal,
 -- but in most modern system all pointer sizes are usually equal. So, for

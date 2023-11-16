@@ -1,19 +1,12 @@
 module Main where
 
 import Control.Monad.Trans.State
-import Control.Monad (void)
 import System.Random
-import Language.C.Data.Name
-import Language.C.Data.Ident (mkIdent)
 import Language.C.Syntax.AST 
-import Language.C.Syntax.Ops
-import Language.C.Parser (parseC)
-import Language.C.Data.Node 
-import Language.C.Data.Position (nopos, initPos)
-import Text.Pretty.Simple (pPrint)
+-- import Text.Pretty.Simple (pPrint)
 import Language.C.Pretty
-import Data.ByteString qualified as BS
-import System.Environment (getArgs)
+-- import Data.ByteString qualified as BS
+-- import System.Environment (getArgs)
 import GenMain
 import Common
 

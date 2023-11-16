@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings, ImportQualifiedPost, NumericUnderscores, ScopedTypeVariables #-}
 -- CFor 
 --      (Either (Maybe (CExpression a)) (CDeclaration a)) 
 --      (Maybe (CExpression a))
@@ -62,27 +63,6 @@ exprBinOp depth = do
     expr1 <- exprRvalue (depth - 1)
     expr2 <- exprRvalue (depth - 1)
     pure $ CBinary op expr1 expr2 undefNode
-
-genIndexVar :: GState ((BS.ByteString, Ident), CDecl)
-genIndexVar = do
-    cNameId <- getId
-    sprog <- get
-    let name = "i" ++ show (Map.size $ indexVars sprog)
-        ident = mkIdent nopos name cNameId
-        decl = 
-            CDecl [CTypeSpec (CIntType undefNode)]
-              [(
-                Just $ CDeclr (Just $ ident) 
-                        []
-                        Nothing 
-                        []
-                        undefNode
-                , Nothing
-                , Nothing
-               )] 
-              undefNode
-    updateIndexVars $ Map.insert (BS.pack name) (ident, CInt) (indexVars sprog)
-    pure ((BS.pack name, ident), decl)
 
 
 loopCondition :: Ident -> Integer -> CExpr

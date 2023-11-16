@@ -1,15 +1,96 @@
 module CommonGen where
 
 import Common
-import Language.C.Syntax.AST
-import Language.C.Syntax.Constants
+import Control.Monad.Trans.State
+import Data.Maybe (fromJust)
+import Data.Vector qualified as V
 import Language.C.Data.Ident
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Position (nopos)
-import Control.Monad.Trans.State
-import Data.Vector qualified as V
+import Language.C.Syntax.AST
+import Language.C.Syntax.Constants
+import Selectors
 
----- GEN --- 
+
+--------------------------------------------------------------------------------
+---------------------------- Generate Expressions ------------------------------
+--------------------------------------------------------------------------------
+-- Assumption: operations are done on the same dtype of variables
+
+genArrayAccessExpr :: DType -> GState CExpr
+genArrayAccessExpr dtype = do
+    -- 1. Choose an array => (ident, dimension specification)
+    (ident, dimSpec) <- chooseArray dtype
+    -- 2. Recursively index all the dimensions with the active indexes
+    --    2.1. Add, subtract or multiply a constant with the index variable
+    --    2.2. Then mod with dimension's size to keep access within the bound.
+    --    TODO: Can we do something smarter to remove the mods?
+    let genIndexArrExpr :: CExpr -> [DimSpec] -> GState CExpr
+        genIndexArrExpr completeExpr [] = pure completeExpr
+        genIndexArrExpr partialExpr (dim:rest) = do
+            -- Choose an active index
+            activeIndexVar <- chooseActiveIndex
+            op <- chooseFromList [CAddOp, CSubOp, CMulOp]
+            lit <- 
+                case op of
+                  CMulOp -> execRandGen (1, 5)
+                  _      -> execRandGen (0, 5)
+            -- Generates a partial expression like:
+            --    <partial-expr>[((<index><op><lit>)%<size> + <size>)%<size>]
+            --                   ---------- expr1 ---------
+            --                   ----------------- expr2 -----------
+            --                   --------------------- expr3 ---------------
+            let indexExpr = CVar (activeIndexIdent activeIndexVar) undefined
+                indexBinOpExpr = CBinary op indexExpr (constructConstExpr lit) undefNode
+                -- fromJust: should be safe at this point because every dimensions have a size
+                sizeExpr = constructExprFromEither $ fmap fromJust dim 
+                expr1 = CBinary CRmdOp indexBinOpExpr sizeExpr undefNode
+                expr2 = CBinary CAddOp expr1 sizeExpr undefNode
+                expr3 = CBinary CRmdOp expr2 sizeExpr undefNode
+                partialExpr' = CIndex partialExpr expr3 undefNode
+            genIndexArrExpr partialExpr' rest
+
+    genIndexArrExpr (CVar ident undefNode) dimSpec
+
+genLValueExpr :: DType -> GState CExpr
+genLValueExpr dtype = do
+    p :: Int <- execRandGen(0,1)
+    case p of
+        -- Access
+        0 -> genArrayAccessExpr dtype
+        -- Singleton
+        1 -> flip CVar undefNode <$> chooseSingleton dtype
+        _ -> undefined
+
+
+genRValueExpr :: DType -> Int -> GState CExpr
+genRValueExpr dtype depth = do
+    p :: Int <- execRandGen(0, max 1 (min 2 depth))
+    case p of
+        -- Access
+        0 -> genArrayAccessExpr dtype
+        -- Singleton
+        1 -> flip CVar undefNode <$> chooseSingleton dtype
+        -- Binary Op
+        2 -> do
+            expr1 <- genRValueExpr dtype (depth - 1)
+            expr2 <- genRValueExpr dtype (depth - 1)
+            op <- chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+            pure $ CBinary op expr1 expr2 undefNode
+        _ -> undefined
+
+
+genAssignExpr :: DType -> GState CExpr
+genAssignExpr dtype = do
+    lhs <- genLValueExpr dtype
+    rhs <- gets maxExpressionDepth >>= genRValueExpr dtype 
+    pure $ CAssign CAssignOp lhs rhs undefNode
+
+
+--------------------------------------------------------------------------------
+---------------------------- Generate Variables --------------------------------
+--------------------------------------------------------------------------------
+
 genSingletons :: DType -> Int -> GState [CDecl]
 genSingletons _ 0 = pure []
 genSingletons dtype n = do
@@ -122,3 +203,10 @@ mDtypeToCTypeDecl mDtype =
 -- TODO: Generalize it to floats and doubles
 constructConstExpr :: Integer -> CExpr
 constructConstExpr v = CConst (CIntConst (cInteger v) undefNode)
+
+constructExprFromEither :: Either Int Ident -> CExpr
+constructExprFromEither e = do
+  case e of
+    Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
+    Right ident -> CVar ident undefNode
+    

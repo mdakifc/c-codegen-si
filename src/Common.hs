@@ -9,13 +9,21 @@ import Language.C.Data.Ident (mkIdent)
 import Language.C.Data.Position (nopos)
 
 -- Standard Library Functions
-data StdFunc = CMalloc | CPrintf | CRand
+data StdFunc = CMalloc | CPrintf | CRand | CScanf
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
 data DType = DInt | DChar | DFloat | DDouble
     deriving (Eq, Show, Enum, Bounded)
 
+data ActiveIndexVar = ActiveIndexVar
+  { activeIndexIdent :: Ident
+  , activeIndexStart :: Either Int Ident
+  , activeIndexEnd :: Either Int Ident
+  , activeIndexStride :: Either Int Ident
+  }
+  deriving (Eq, Show)
+  
 -- Id of Array, Dimensions of array with either a constant size or an identifier to an integer
 type DimSpec = Either Int (Maybe Ident)
 type ArrSpec = (Ident, [DimSpec])
@@ -23,8 +31,13 @@ type ArrSpec = (Ident, [DimSpec])
 -- dtype -> [identifier (, Associated data)?]
 type MultiDimensionalArrays = V.Vector (IntMap.IntMap ArrSpec)
 type Singletons = V.Vector (IntMap.IntMap Ident)
+
 type IndexVars = IntMap.IntMap Ident
+type ActiveIndexVars = IntMap.IntMap ActiveIndexVar
 type Parameters = IntMap.IntMap Ident
+type Functions = IntMap.IntMap (Ident, Parameters)
+
+-- StdFunc -> Ident
 type StdFunctions = V.Vector Ident
 
 data SProg = SProg
@@ -38,15 +51,17 @@ data SProg = SProg
   , maxFuncDepth :: Int
   , maxLoopDepth :: Int
   , noOfFunctions :: Int
+  , maxExpressionDepth :: Int -- Potentially Exponential
+  , targetDTypes :: [DType]
   , stdFunctions :: StdFunctions
     -- Variable
-  , nFunctions :: Int
+  , functions :: Functions
   , generator :: StdGen
   , mDimArrs :: MultiDimensionalArrays
   , indexVars :: IndexVars
   , singletons :: Singletons
   , parameters :: Parameters
-  , activeIndexes :: IndexVars
+  , activeIndexes :: ActiveIndexVars
   , nId :: Int
   }
   deriving (Eq, Show)
@@ -77,6 +92,21 @@ updateParams :: Int -> Ident -> GState ()
 updateParams key param = do
   modify' (\s -> s { parameters = IntMap.insert key param $ parameters s })
 
+-- Saves the function in functions
+-- And clears out the other variables
+popFunctionScope :: Int -> Ident -> GState ()
+popFunctionScope key ident = do
+  -- Save the function in functions
+  modify' $ \sProg ->
+    sProg { functions = IntMap.insert key (ident, parameters sProg) (functions sProg)
+          }
+  -- Clear out the other variables
+  modify' $ \sProg -> 
+    sProg { mDimArrs = mempty -- TODO: Need to care about global scope
+          , indexVars = mempty
+          , singletons = mempty
+          , parameters = mempty
+          }
 
 getId :: GState Name
 getId = do
@@ -85,12 +115,6 @@ getId = do
   put $ sprog { nId = n+1 }
   pure $ Name n
 
--- chooseFromVMap :: (SProg -> Map.Map k (a,b)) -> GState a
--- chooseFromVMap f = do
---   mp <- f <$> get
---   let n = Map.size mp
---   i <- execRandGen (0, n-1)
---   pure . fst . snd $ Map.elemAt i mp
 
 stdFuncName :: StdFunc -> String
 stdFuncName v = 
@@ -98,6 +122,8 @@ stdFuncName v =
     CMalloc -> "malloc"
     CPrintf -> "printf"
     CRand -> "rand"
+    CScanf -> "scanf"
+
 
 --------------------------------------------------------------------------------
 ------------------------------------TEST----------------------------------------
@@ -115,10 +141,12 @@ config g =
     , maxScalars = 10
     , maxFuncDepth = 500
     , maxLoopDepth = 5
-    , noOfFunctions = 10
+    , noOfFunctions = 1
+    , maxExpressionDepth = 5 -- Potentially Exponential (2^n)
+    , targetDTypes = [minBound .. maxBound] 
     , stdFunctions = standardFunctions'
       -- Variable
-    , nFunctions = 0
+    , functions = mempty
     , generator = g
     , mDimArrs = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
     , singletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
