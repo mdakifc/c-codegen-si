@@ -1,19 +1,22 @@
-{-# LANGUAGE OverloadedStrings, ImportQualifiedPost, NumericUnderscores, ScopedTypeVariables #-}
--- CFor 
---      (Either (Maybe (CExpression a)) (CDeclaration a)) 
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE NumericUnderscores  #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+-- CFor
+--      (Either (Maybe (CExpression a)) (CDeclaration a))
 --      (Maybe (CExpression a))
---      (Maybe (CExpression a)) 
---      (CStatement a) 
+--      (Maybe (CExpression a))
+--      (CStatement a)
 --      a
 module GenFor where
 
-import Data.ByteString.Char8 qualified as BS
-import Common
-import Data.Map qualified as Map
-import Language.C.Syntax.AST
-import Language.C.Data
-import Control.Monad.Trans.State
-import Language.C.Syntax.Constants
+import           Common
+import           Control.Monad.Trans.State
+import qualified Data.ByteString.Char8       as BS
+import qualified Data.Map                    as Map
+import           Language.C.Data
+import           Language.C.Syntax.AST
+import           Language.C.Syntax.Constants
 
 -- A[i]
 exprAccess :: GState CExpr
@@ -21,7 +24,7 @@ exprAccess = do
     -- Choose a random array
     -- Choose a random index variable
     -- Emit
-    
+
     arr <- chooseFromVMap mDimArrs
     i <- chooseFromVMap indexVars
     pure $ CIndex (CVar arr undefNode) (CVar i undefNode) undefNode
@@ -87,10 +90,10 @@ genFor nest = do
     n <- get >>= (pure . maxSize)
     stat <- genStat (nest - 1)
     deleteIndexVar name
-    pure $ 
-        CFor (Right initDecl) 
-         (Just $ loopCondition ident $ fromIntegral n) 
-         (Just $ increment ident) 
+    pure $
+        CFor (Right initDecl)
+         (Just $ loopCondition ident $ fromIntegral n)
+         (Just $ increment ident)
          (stat)
          undefNode
-    
+

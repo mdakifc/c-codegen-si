@@ -1,16 +1,16 @@
 module GenVectorizable where
 
-import Control.Monad
-import Control.Monad.Trans.State
-import Language.C.Data.Ident
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (nopos)
-import Language.C.Syntax.AST
-import Common
-import CommonGen
-import Selectors
+import           Common
+import           CommonGen
+import           Control.Monad
+import           Control.Monad.Trans.State
+import           Language.C.Data.Ident
+import           Language.C.Data.Node      (undefNode)
+import           Language.C.Data.Position  (nopos)
+import           Language.C.Syntax.AST
+import           Selectors
 
-{- 
+{-
 Goal:
   - Create a loops with arbitrary index variables.
   - Use modulo to keep access within bounds.
@@ -25,13 +25,13 @@ genVectorizableForForward = do
   --    -- Since the state is updated with the index variable we can create the loop body
   body <- genVectorizableBlock
   -- 3. Create the for loop
-  let 
+  let
     indexExpr :: CExpr = CVar (activeIndexIdent activeIndex) undefNode
     initExpr :: CExpr = CAssign CAssignOp indexExpr (constructExprFromEither $ activeIndexStart activeIndex) undefNode
     conditionExpr :: CExpr = CBinary CLeOp indexExpr (constructExprFromEither $ activeIndexEnd activeIndex) undefNode
     updateExpr :: CExpr = CAssign CAddAssOp indexExpr (constructExprFromEither $ activeIndexStride activeIndex) undefNode
-    loopStat = 
-      CFor 
+    loopStat =
+      CFor
         (Left $ Just initExpr)
         (Just conditionExpr)
         (Just updateExpr)

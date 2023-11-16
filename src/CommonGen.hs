@@ -1,15 +1,15 @@
 module CommonGen where
 
-import Common
-import Control.Monad.Trans.State
-import Data.Maybe (fromJust)
-import Data.Vector qualified as V
-import Language.C.Data.Ident
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (nopos)
-import Language.C.Syntax.AST
-import Language.C.Syntax.Constants
-import Selectors
+import           Common
+import           Control.Monad.Trans.State
+import           Data.Maybe                  (fromJust)
+import qualified Data.Vector                 as V
+import           Language.C.Data.Ident
+import           Language.C.Data.Node        (undefNode)
+import           Language.C.Data.Position    (nopos)
+import           Language.C.Syntax.AST
+import           Language.C.Syntax.Constants
+import           Selectors
 
 
 --------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ genArrayAccessExpr dtype = do
             -- Choose an active index
             activeIndexVar <- chooseActiveIndex
             op <- chooseFromList [CAddOp, CSubOp, CMulOp]
-            lit <- 
+            lit <-
                 case op of
                   CMulOp -> execRandGen (1, 5)
                   _      -> execRandGen (0, 5)
@@ -43,7 +43,7 @@ genArrayAccessExpr dtype = do
             let indexExpr = CVar (activeIndexIdent activeIndexVar) undefined
                 indexBinOpExpr = CBinary op indexExpr (constructConstExpr lit) undefNode
                 -- fromJust: should be safe at this point because every dimensions have a size
-                sizeExpr = constructExprFromEither $ fmap fromJust dim 
+                sizeExpr = constructExprFromEither $ fmap fromJust dim
                 expr1 = CBinary CRmdOp indexBinOpExpr sizeExpr undefNode
                 expr2 = CBinary CAddOp expr1 sizeExpr undefNode
                 expr3 = CBinary CRmdOp expr2 sizeExpr undefNode
@@ -83,7 +83,7 @@ genRValueExpr dtype depth = do
 genAssignExpr :: DType -> GState CExpr
 genAssignExpr dtype = do
     lhs <- genLValueExpr dtype
-    rhs <- gets maxExpressionDepth >>= genRValueExpr dtype 
+    rhs <- gets maxExpressionDepth >>= genRValueExpr dtype
     pure $ CAssign CAssignOp lhs rhs undefNode
 
 
@@ -96,7 +96,7 @@ genSingletons _ 0 = pure []
 genSingletons dtype n = do
     cNameId <- getId
     nSingleton <- gets (length . (V.! fromEnum dtype) . singletons)
-    let 
+    let
         name = "s" ++ dtypeToIdent dtype ++ show nSingleton
         ident = mkIdent nopos name cNameId
         decl = constructSingleton ident dtype (Just constructInitializerZero)
@@ -122,7 +122,7 @@ genHeapArrays _ [] = pure []
 genHeapArrays dtype (dims:rest) = do
     cNameId <- getId
     key <- gets (length . (V.! fromEnum dtype) . mDimArrs)
-    let 
+    let
         name = "A" ++ dtypeToIdent dtype ++ show key
         ident = mkIdent nopos name cNameId
         decl = constructHeapArray ident dtype dims
@@ -132,7 +132,7 @@ genHeapArrays dtype (dims:rest) = do
 
 constructSingleton :: Ident -> DType -> Maybe CInit -> CDecl
 constructSingleton ident dtype mCInit =
-    CDecl 
+    CDecl
         -- Type Specifier
         [CTypeSpec (dtypeToCTypeSpecifier dtype)]
         -- Declarator
@@ -140,21 +140,21 @@ constructSingleton ident dtype mCInit =
         undefNode
 
 constructSingletonDeclr :: Ident -> CDeclr
-constructSingletonDeclr ident = 
+constructSingletonDeclr ident =
     CDeclr (Just ident) [] Nothing [] undefNode
 
 constructHeapArray :: Ident -> DType -> Int -> CDecl
 constructHeapArray ident dtype dims =
-    CDecl 
+    CDecl
         -- Type Specifier
         [CTypeSpec (dtypeToCTypeSpecifier dtype)]
         -- Declarator
         [(Just $ constructHeapArrayDeclr ident dims, Just constructInitializerZero, Nothing)]
         undefNode
-        
+
 constructHeapArrayDeclr :: Ident -> Int -> CDeclr
-constructHeapArrayDeclr ident nDims = 
-    CDeclr 
+constructHeapArrayDeclr ident nDims =
+    CDeclr
         (Just ident)
         -- Pointers
         (replicate nDims $ CPtrDeclr [] undefNode)
@@ -163,27 +163,27 @@ constructHeapArrayDeclr ident nDims =
         undefNode
 
 constructInitializerZero :: CInit
-constructInitializerZero = 
+constructInitializerZero =
     let expr = CConst (flip CIntConst undefNode $ cInteger 0)
     in CInitExpr expr undefNode
 
 dtypeToIdent :: DType -> String
-dtypeToIdent DInt = "I"
-dtypeToIdent DChar = "C"
-dtypeToIdent DFloat = "F"
+dtypeToIdent DInt    = "I"
+dtypeToIdent DChar   = "C"
+dtypeToIdent DFloat  = "F"
 dtypeToIdent DDouble = "D"
 
 
 dtypeToCTypeSpecifier :: DType -> CTypeSpec
-dtypeToCTypeSpecifier DInt = CIntType undefNode
-dtypeToCTypeSpecifier DChar = CCharType undefNode
-dtypeToCTypeSpecifier DFloat = CFloatType undefNode
+dtypeToCTypeSpecifier DInt    = CIntType undefNode
+dtypeToCTypeSpecifier DChar   = CCharType undefNode
+dtypeToCTypeSpecifier DFloat  = CFloatType undefNode
 dtypeToCTypeSpecifier DDouble = CDoubleType undefNode
 
 mDtypeToCTypeDecl :: Maybe DType -> CDecl
 mDtypeToCTypeDecl mDtype =
     case mDtype of
-        Nothing -> 
+        Nothing ->
           -- void *
           CDecl
             [CTypeSpec (CVoidType undefNode)]
@@ -193,8 +193,8 @@ mDtypeToCTypeDecl mDtype =
              , Nothing
              )]
             undefNode
-        Just dtype -> 
-          -- <type> 
+        Just dtype ->
+          -- <type>
           CDecl
             [CTypeSpec (dtypeToCTypeSpecifier dtype)]
             []
@@ -208,5 +208,5 @@ constructExprFromEither :: Either Int Ident -> CExpr
 constructExprFromEither e = do
   case e of
     Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
-    Right ident -> CVar ident undefNode
-    
+    Right ident     -> CVar ident undefNode
+

@@ -1,0 +1,5 @@
+repos:
+-   repo: https://github.com/akif503/c-codegen-si/
+    rev: 15e00d5a97c12b136e0fd742b6a3baece3046ba7
+    hooks:
+    -   id: stylish-haskell

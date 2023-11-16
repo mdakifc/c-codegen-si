@@ -1,20 +1,20 @@
 module GenFunc where
 
-import Control.Applicative ((<|>))
-import Common
-import CommonGen
-import Data.IntMap qualified as IntMap
-import Data.Maybe (fromJust)
-import Data.Traversable
-import Data.Vector qualified as V
-import Control.Monad
-import Control.Monad.Trans.State
-import GenVectorizable
-import Language.C.Data.Ident
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (nopos)
-import Language.C.Syntax.AST
-import Language.C.Syntax.Constants
+import           Common
+import           CommonGen
+import           Control.Applicative         ((<|>))
+import           Control.Monad
+import           Control.Monad.Trans.State
+import qualified Data.IntMap                 as IntMap
+import           Data.Maybe                  (fromJust)
+import           Data.Traversable
+import qualified Data.Vector                 as V
+import           GenVectorizable
+import           Language.C.Data.Ident
+import           Language.C.Data.Node        (undefNode)
+import           Language.C.Data.Position    (nopos)
+import           Language.C.Syntax.AST
+import           Language.C.Syntax.Constants
 
 {-
 Goal:
@@ -29,7 +29,7 @@ Goal:
   -      - b Scalars (stack allocated)
   -      - a Arrays (heap allocated) + initialization to random values
            - Multidimensional arrays must be allocated with nested for loops.
-  - TODO: 
+  - TODO:
     1. flattened arrays => Use 1D arrays with row major indexing.
 -}
 
@@ -49,7 +49,7 @@ genFuncCallBlock stdFunctionIdents fnIdent params = do
   let argumentIdents = IntMap.elems params
   decls :: [CBlockItem] <- ((CBlockDecl <$>) <$>) . for argumentIdents $ \pIdent -> do
     pure $ constructSingleton pIdent DInt Nothing
-  let 
+  let
     -- Call to scanf
     scanfCall :: CBlockItem = CBlockStmt  . flip CExpr undefNode . Just $ constructScanf stdFunctionIdents argumentIdents
     -- Function call
@@ -77,7 +77,7 @@ genFunc = do
     pure funcDef
 
 constructFunc :: Ident -> Parameters -> CStat -> CFunDef
-constructFunc ident params body = 
+constructFunc ident params body =
     CFunDef
      -- Return type
      [CTypeSpec (CVoidType undefNode)] -- Void return type
@@ -88,7 +88,7 @@ constructFunc ident params body =
         -- Function Declarator Specifier
         [ CFunDeclr
             ( Right
-                ( 
+                (
                   -- Parameters
                   constructParams params
                   -- IsVariadic
@@ -170,48 +170,48 @@ constructAllocateAndInitialize :: StdFunctions -> DType -> CExpr -> [(Ident, Dim
 constructAllocateAndInitialize _ _ _ [] = error "Dimension-less array."
 -- This case can't happen either, since each dimension should have an associated size at this point
 constructAllocateAndInitialize _ _ _ ((_, Right Nothing):_) = error "A dimension of the array does not have an associated size."
-constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr [(indexIdent, dimSpec)] = 
-  let 
-    -- 1. Allocate space for the type: 
+constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr [(indexIdent, dimSpec)] =
+  let
+    -- 1. Allocate space for the type:
     --    - i.e. <id>((d-1)-dimensional access) = malloc(sizeof (<type>) * <dim-size>);
     allocLhs = partialArrExpr
     -- Here fromJust is safe
-    allocRhs = constructMalloc stdFunctionIdents (Just dtype) (fromJust <$> dimSpec) 
+    allocRhs = constructMalloc stdFunctionIdents (Just dtype) (fromJust <$> dimSpec)
     allocStat :: CStat = flip CExpr undefNode . Just $ CAssign CAssignOp allocLhs allocRhs undefNode
     -- 2. Assign values to the array
     --    i.e. construct a for loop with `indexIdent` and assign values
     -- initExpr: <index-ident> = 0
     indexExpr = CVar indexIdent undefNode
     initExpr :: CExpr = CAssign CAssignOp indexExpr (constructConstExpr 0) undefNode
-    conditionExpr :: CExpr = 
+    conditionExpr :: CExpr =
       let
         condLhs = indexExpr
         condRhs =
-          case dimSpec of 
-            Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
+          case dimSpec of
+            Left intLiteral    -> constructConstExpr $ fromIntegral intLiteral
             Right (Just ident) -> CVar ident undefNode
       in CBinary CLeOp condLhs condRhs undefNode
     updateExpr :: CExpr = CUnary CPostIncOp indexExpr undefNode
-    assignStat = 
+    assignStat =
       let
         assignLhs :: CExpr = CIndex partialArrExpr indexExpr undefNode
         assignRhs :: CExpr = constructRandomValue stdFunctionIdents dtype
       in flip CExpr undefNode . Just $ CAssign CAssignOp assignLhs assignRhs undefNode
-    assignFor :: CStat = 
+    assignFor :: CStat =
       CFor (Left (Just initExpr)) -- init
         (Just conditionExpr) -- condition
         (Just updateExpr) -- update
         assignStat -- Assign
         undefNode
   in [allocStat, assignFor]
-  
-constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIdent, dimSpec):rest) = 
+
+constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIdent, dimSpec):rest) =
   let
-    -- 1. Allocate space for the pointer to array: 
+    -- 1. Allocate space for the pointer to array:
     --    - i.e. <id>((d-1)-dimensional access) = malloc(sizeof (<type>) * <dim-size>);
     allocLhs = partialArrExpr
     -- Here fromJust is safe
-    allocRhs = constructMalloc stdFunctionIdents Nothing (fromJust <$> dimSpec) 
+    allocRhs = constructMalloc stdFunctionIdents Nothing (fromJust <$> dimSpec)
     allocStat :: CStat = flip CExpr undefNode . Just $ CAssign CAssignOp allocLhs allocRhs undefNode
     -- 2. Loop over the next dimension
     --    - i.e. construct a for loop with `indexIdent` and recurse with updated partialArrExpr
@@ -221,17 +221,17 @@ constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIde
       let
         condLhs = indexExpr
         condRhs =
-          case dimSpec of 
-            Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
+          case dimSpec of
+            Left intLiteral    -> constructConstExpr $ fromIntegral intLiteral
             Right (Just ident) -> CVar ident undefNode
       in CBinary CLeOp condLhs condRhs undefNode
     updateExpr :: CExpr = CUnary CPostIncOp indexExpr undefNode
     partialArrExpr' = CIndex partialArrExpr indexExpr undefNode
-    blockStat :: CStat =  
+    blockStat :: CStat =
       CCompound []
       (CBlockStmt <$> constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr' rest)
       undefNode
-    assignFor :: CStat = 
+    assignFor :: CStat =
       CFor (Left (Just initExpr)) -- init
         (Just conditionExpr) -- condition
         (Just updateExpr) -- update
@@ -241,17 +241,17 @@ constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIde
 
 constructRandomValue :: StdFunctions -> DType -> CExpr
 constructRandomValue stdFunctionIdents dtype =
-  let 
+  let
     randIdent = stdFunctionIdents V.! fromEnum CRand
     randCallExpr :: CExpr = CCall (CVar randIdent undefNode) [] undefNode
-  in case dtype of 
+  in case dtype of
     DInt -> randCallExpr
     DChar -> CBinary CRmdOp randCallExpr (constructConstExpr 256) undefNode
     -- Fixed point values
-    _ -> 
+    _ ->
       -- Constructs the following:
       --  ((float)rand()/2147483647) * 1e6
-      let 
+      let
         expr1 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) randCallExpr undefNode
         expr2 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) (constructConstExpr 2147483647) undefNode
         expr3 :: CExpr = CBinary CDivOp expr1 expr2 undefNode
@@ -261,18 +261,18 @@ constructRandomValue stdFunctionIdents dtype =
 -- Construct a malloc call
 -- If mDtype is Nothing then it allocates with the size of of a void pointer
 constructMalloc :: StdFunctions -> Maybe DType -> Either Int Ident -> CExpr
-constructMalloc stdFunctionIdents mDtype eSize = 
+constructMalloc stdFunctionIdents mDtype eSize =
   let mallocIdent = stdFunctionIdents V.! fromEnum CMalloc
       lhs = constructSizeOf mDtype
-      rhs = 
+      rhs =
         case eSize of
           Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
-          Right ident -> CVar ident undefNode
+          Right ident     -> CVar ident undefNode
       expr = CBinary CMulOp lhs rhs undefNode
   in CCall (CVar mallocIdent undefNode) [expr] undefNode
 
 constructScanf :: StdFunctions -> [Ident] -> CExpr
-constructScanf stdFunctionIdents varIdents = 
+constructScanf stdFunctionIdents varIdents =
   let scanfIdent :: Ident = stdFunctionIdents V.! fromEnum CScanf
       formatString :: CExpr = CConst . flip CStrConst undefNode . cString . unwords $ replicate (length varIdents) "%d"
       arguments :: [CExpr] = flip (CUnary CAdrOp) undefNode . flip CVar undefNode <$> varIdents

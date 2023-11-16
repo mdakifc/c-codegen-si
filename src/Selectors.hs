@@ -1,10 +1,10 @@
 module Selectors where
 
-import Common
-import Control.Monad.Trans.State
-import Data.IntMap qualified as IntMap
-import Data.Vector qualified as V
-import Language.C.Data.Ident
+import           Common
+import           Control.Monad.Trans.State
+import qualified Data.IntMap               as IntMap
+import qualified Data.Vector               as V
+import           Language.C.Data.Ident
 
 {-
    Activates an index variable from the IndexVars list
@@ -32,7 +32,7 @@ activateIndexVar = do
     -- Add it to the active index variable list
     modify' (\s -> s { activeIndexes = IntMap.insert key activeIndexVar (activeIndexes s) } )
     pure (key, activeIndexVar)
-    
+
 
 deactiveIndexVar :: Int -> GState ()
 deactiveIndexVar key = do
@@ -41,7 +41,7 @@ deactiveIndexVar key = do
     modify' (\s -> s { activeIndexes = IntMap.delete key (activeIndexes s) } )
     -- Add it back to the index variable list
     updateIndexes key ident
-    
+
 
 chooseKeyFromMap :: IntMap.IntMap a -> GState (Int, a)
 chooseKeyFromMap m = do

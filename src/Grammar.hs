@@ -1,10 +1,10 @@
 module Grammar where
 
-import System.Random
+import           System.Random
 
 -- data Program = Body
-    
-data Stat = 
+
+data Stat =
       VariableDef
     | Assignment
     | For
@@ -13,12 +13,12 @@ data Stat =
     -- | VLoopB
  deriving (Eq, Ord, Enum, Show)
 
-data VExpr = 
+data VExpr =
         Constant
       | Identifier
       | Access
       | BinOp
       | VOp
  deriving (Eq, Ord, Enum, Show)
-    
--- gen :: RandomGen g => g -> 
+
+-- gen :: RandomGen g => g ->
