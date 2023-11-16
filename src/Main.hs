@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings, ImportQualifiedPost #-}
-
 module Main where
 
 import Control.Monad.Trans.State

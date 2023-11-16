@@ -64,13 +64,17 @@ executable c-codegen-si
 
     -- Modules included in this executable, other than Main.
     other-modules:    
-        GenMain
-        GenFor
         Common
-
+        CommonGen
+        GenMain
+        GenFunc
 
     -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
+    default-extensions:
+          OverloadedStrings
+        , ImportQualifiedPost
+        , NumericUnderscores
+        , ScopedTypeVariables
 
     -- Other library packages from which modules are imported.
     build-depends:    

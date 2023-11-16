@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings, ImportQualifiedPost, NumericUnderscores, ScopedTypeVariables #-}
 -- CFor 
 --      (Either (Maybe (CExpression a)) (CDeclaration a)) 
 --      (Maybe (CExpression a))
@@ -63,7 +62,6 @@ exprBinOp depth = do
     expr1 <- exprRvalue (depth - 1)
     expr2 <- exprRvalue (depth - 1)
     pure $ CBinary op expr1 expr2 undefNode
-
 
 genIndexVar :: GState ((BS.ByteString, Ident), CDecl)
 genIndexVar = do

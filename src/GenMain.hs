@@ -1,7 +1,3 @@
-{-# LANGUAGE OverloadedStrings, ImportQualifiedPost, NumericUnderscores, ScopedTypeVariables #-}
--- (1) Start with defining the global arrays.
--- (2) Create the main function.
-
 module GenMain where
 
 
@@ -72,26 +68,6 @@ declareGlobals = do
     concat <$> sequence [genIndexVar >>= (pure . (:[]) . snd), genArrs sizess, genSingletons 2]
 
 
-genSingletons :: Int -> GState [CDecl]
-genSingletons 0 = pure []
-genSingletons n = do
-    cNameId <- getId
-    sprog <- get
-    let 
-      name = "s" ++ show (Map.size $ singletons sprog)
-      ident = mkIdent nopos name cNameId
-      decl = CDecl [CTypeSpec (CIntType undefNode)]
-             [(Just $ CDeclr (Just $ ident) 
-                      []
-                      Nothing 
-                      []
-                      undefNode
-              , Nothing
-              , Nothing
-              )] 
-              undefNode
-    updateSingletons $ Map.insert (BS.pack name) (ident, CInt) (singletons sprog)
-    genSingletons (n-1) >>= (pure . (decl:))
 
 -- Structure: 
 -- CDecl 
