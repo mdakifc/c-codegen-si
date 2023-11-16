@@ -1,6 +1,6 @@
 module Grammar where
 
-import           System.Random
+import System.Random
 
 -- data Program = Body
 

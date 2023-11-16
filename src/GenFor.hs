@@ -10,13 +10,13 @@
 --      a
 module GenFor where
 
-import           Common
-import           Control.Monad.Trans.State
-import qualified Data.ByteString.Char8       as BS
-import qualified Data.Map                    as Map
-import           Language.C.Data
-import           Language.C.Syntax.AST
-import           Language.C.Syntax.Constants
+import Common
+import Control.Monad.Trans.State
+import Data.ByteString.Char8       qualified as BS
+import Data.Map                    qualified as Map
+import Language.C.Data
+import Language.C.Syntax.AST
+import Language.C.Syntax.Constants
 
 -- A[i]
 exprAccess :: GState CExpr

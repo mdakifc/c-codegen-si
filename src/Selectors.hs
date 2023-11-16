@@ -1,10 +1,10 @@
 module Selectors where
 
-import           Common
-import           Control.Monad.Trans.State
-import qualified Data.IntMap               as IntMap
-import qualified Data.Vector               as V
-import           Language.C.Data.Ident
+import Common
+import Control.Monad.Trans.State
+import Data.IntMap               qualified as IntMap
+import Data.Vector               qualified as V
+import Language.C.Data.Ident
 
 {-
    Activates an index variable from the IndexVars list

@@ -1,14 +1,14 @@
 module Main where
 
-import           Control.Monad.Trans.State
-import           Language.C.Syntax.AST
-import           System.Random
+import Control.Monad.Trans.State
+import Language.C.Syntax.AST
+import System.Random
 -- import Text.Pretty.Simple (pPrint)
-import           Language.C.Pretty
+import Language.C.Pretty
 -- import Data.ByteString qualified as BS
 -- import System.Environment (getArgs)
-import           Common
-import           GenMain
+import Common
+import GenMain
 
 -- GenC
 main :: IO ()

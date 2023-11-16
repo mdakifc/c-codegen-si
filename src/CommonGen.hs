@@ -1,15 +1,15 @@
 module CommonGen where
 
-import           Common
-import           Control.Monad.Trans.State
-import           Data.Maybe                  (fromJust)
-import qualified Data.Vector                 as V
-import           Language.C.Data.Ident
-import           Language.C.Data.Node        (undefNode)
-import           Language.C.Data.Position    (nopos)
-import           Language.C.Syntax.AST
-import           Language.C.Syntax.Constants
-import           Selectors
+import Common
+import Control.Monad.Trans.State
+import Data.Maybe                  (fromJust)
+import Data.Vector                 qualified as V
+import Language.C.Data.Ident
+import Language.C.Data.Node        (undefNode)
+import Language.C.Data.Position    (nopos)
+import Language.C.Syntax.AST
+import Language.C.Syntax.Constants
+import Selectors
 
 
 --------------------------------------------------------------------------------

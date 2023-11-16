@@ -1,14 +1,14 @@
 module GenVectorizable where
 
-import           Common
-import           CommonGen
-import           Control.Monad
-import           Control.Monad.Trans.State
-import           Language.C.Data.Ident
-import           Language.C.Data.Node      (undefNode)
-import           Language.C.Data.Position  (nopos)
-import           Language.C.Syntax.AST
-import           Selectors
+import Common
+import CommonGen
+import Control.Monad
+import Control.Monad.Trans.State
+import Language.C.Data.Ident
+import Language.C.Data.Node      (undefNode)
+import Language.C.Data.Position  (nopos)
+import Language.C.Syntax.AST
+import Selectors
 
 {-
 Goal:

@@ -1,15 +1,15 @@
 module GenMain where
 
 
+import Common
 import Control.Monad
 import Control.Monad.Trans.State
-import Data.IntMap qualified as IntMap
-import Language.C.Data.Ident
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (nopos)
-import Language.C.Syntax.AST
-import Common
+import Data.IntMap               qualified as IntMap
 import GenFunc
+import Language.C.Data.Ident
+import Language.C.Data.Node      (undefNode)
+import Language.C.Data.Position  (nopos)
+import Language.C.Syntax.AST
 
 
 buildAST :: GState CTranslUnit
@@ -28,7 +28,7 @@ createMain = do
     pure $ constructMainFn ident body
 
 genMainBody :: GState CStat
-genMainBody = do 
+genMainBody = do
     -- Calls each defined function
     stdFunctionIdents <- gets stdFunctions
     fnCallStats :: [CStat] <- gets (IntMap.elems . functions) >>= traverse (uncurry (genFuncCallBlock stdFunctionIdents))
@@ -36,7 +36,7 @@ genMainBody = do
     pure $ CCompound [] (CBlockStmt <$> fnCallStats) undefNode
 
 constructMainFn :: Ident -> CStat -> CFunDef
-constructMainFn ident body = 
+constructMainFn ident body =
     CFunDef
       -- Return type
       [CTypeSpec (CIntType undefNode)] -- Return type
@@ -77,8 +77,8 @@ constructMainFn ident body =
 --     concat <$> sequence [genIndexVar >>= (pure . (:[]) . snd), genArrs sizess, genSingletons 2]
 
 
--- Structure: 
--- CDecl 
+-- Structure:
+-- CDecl
 --      [CDeclarationSpecifier a]
 --      [
 --          ( Maybe (CDeclarator a)
@@ -86,10 +86,10 @@ constructMainFn ident body =
 --          , Maybe (CExpression a)
 --          )
 --      ] a
--- CDeclr 
---      (Maybe Ident) 
---      [CDerivedDeclarator a] 
---      (Maybe (CStringLiteral a)) 
+-- CDeclr
+--      (Maybe Ident)
+--      [CDerivedDeclarator a]
+--      (Maybe (CStringLiteral a))
 --      [CAttribute a] a
 -- Takes a list of [Sizes] for each array
 -- genArrs :: [[Int]] -> GState [CDecl]
@@ -97,18 +97,18 @@ constructMainFn ident body =
 -- genArrs (sizes:rest) = do
 --     cNameId <- getId
 --     sprog <- get
---     let 
+--     let
 --         name = "A" ++ show (Map.size $ mDimArrs sprog)
 --         ident = mkIdent nopos name cNameId
 --         decl = CDecl [CTypeSpec (CIntType undefNode)]
---                [(Just $ CDeclr (Just $ ident) 
+--                [(Just $ CDeclr (Just $ ident)
 --                         ((\size -> CArrDeclr [] (CArrSize False (CConst (CIntConst (cInteger $ fromIntegral size) undefNode))) undefNode) <$> sizes)
---                         Nothing 
+--                         Nothing
 --                         []
 --                         undefNode
 --                 , Nothing
 --                 , Nothing)] undefNode
 --     updateArrs $ Map.insert (BS.pack name) (ident, V.fromList sizes) (mDimArrs sprog)
 --     genArrs rest >>= (pure . (decl:))
-    
+
 

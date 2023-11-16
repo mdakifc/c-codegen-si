@@ -1,12 +1,12 @@
 module Common where
 
-import System.Random
 import Control.Monad.Trans.State
-import Data.Vector qualified as V
-import Data.IntMap qualified as IntMap
-import Language.C.Data (Name (..), Ident)
-import Language.C.Data.Ident (mkIdent)
-import Language.C.Data.Position (nopos)
+import Data.IntMap               qualified as IntMap
+import Data.Vector               qualified as V
+import Language.C.Data           (Ident, Name (..))
+import Language.C.Data.Ident     (mkIdent)
+import Language.C.Data.Position  (nopos)
+import System.Random
 
 -- Standard Library Functions
 data StdFunc = CMalloc | CPrintf | CRand | CScanf
@@ -17,13 +17,13 @@ data DType = DInt | DChar | DFloat | DDouble
     deriving (Eq, Show, Enum, Bounded)
 
 data ActiveIndexVar = ActiveIndexVar
-  { activeIndexIdent :: Ident
-  , activeIndexStart :: Either Int Ident
-  , activeIndexEnd :: Either Int Ident
+  { activeIndexIdent  :: Ident
+  , activeIndexStart  :: Either Int Ident
+  , activeIndexEnd    :: Either Int Ident
   , activeIndexStride :: Either Int Ident
   }
   deriving (Eq, Show)
-  
+
 -- Id of Array, Dimensions of array with either a constant size or an identifier to an integer
 type DimSpec = Either Int (Maybe Ident)
 type ArrSpec = (Ident, [DimSpec])
@@ -41,28 +41,28 @@ type Functions = IntMap.IntMap (Ident, Parameters)
 type StdFunctions = V.Vector Ident
 
 data SProg = SProg
-  { 
+  {
     -- Potentially Constant
-    maxGlobals :: Int -- Currently, arrays are generated globally
-  , maxDims :: Int
-  , sizeRange :: (Int, Int)
-  , maxSize :: Int
-  , maxScalars :: Int
-  , maxFuncDepth :: Int
-  , maxLoopDepth :: Int
-  , noOfFunctions :: Int
+    maxGlobals         :: Int -- Currently, arrays are generated globally
+  , maxDims            :: Int
+  , sizeRange          :: (Int, Int)
+  , maxSize            :: Int
+  , maxScalars         :: Int
+  , maxFuncDepth       :: Int
+  , maxLoopDepth       :: Int
+  , noOfFunctions      :: Int
   , maxExpressionDepth :: Int -- Potentially Exponential
-  , targetDTypes :: [DType]
-  , stdFunctions :: StdFunctions
+  , targetDTypes       :: [DType]
+  , stdFunctions       :: StdFunctions
     -- Variable
-  , functions :: Functions
-  , generator :: StdGen
-  , mDimArrs :: MultiDimensionalArrays
-  , indexVars :: IndexVars
-  , singletons :: Singletons
-  , parameters :: Parameters
-  , activeIndexes :: ActiveIndexVars
-  , nId :: Int
+  , functions          :: Functions
+  , generator          :: StdGen
+  , mDimArrs           :: MultiDimensionalArrays
+  , indexVars          :: IndexVars
+  , singletons         :: Singletons
+  , parameters         :: Parameters
+  , activeIndexes      :: ActiveIndexVars
+  , nId                :: Int
   }
   deriving (Eq, Show)
 
@@ -101,7 +101,7 @@ popFunctionScope key ident = do
     sProg { functions = IntMap.insert key (ident, parameters sProg) (functions sProg)
           }
   -- Clear out the other variables
-  modify' $ \sProg -> 
+  modify' $ \sProg ->
     sProg { mDimArrs = mempty -- TODO: Need to care about global scope
           , indexVars = mempty
           , singletons = mempty
@@ -117,12 +117,12 @@ getId = do
 
 
 stdFuncName :: StdFunc -> String
-stdFuncName v = 
+stdFuncName v =
   case v of
     CMalloc -> "malloc"
     CPrintf -> "printf"
-    CRand -> "rand"
-    CScanf -> "scanf"
+    CRand   -> "rand"
+    CScanf  -> "scanf"
 
 
 --------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ config :: StdGen -> SProg
 config g =
   -- Generate the identifiers for the standard library functions that we need
   let standardFunctions' = V.generate (fromEnum (maxBound :: StdFunc) + 1) (\i -> mkIdent nopos (stdFuncName $ toEnum i) (Name i))
-  in SProg 
+  in SProg
     { maxGlobals = 5
     , maxDims = 2
     , sizeRange = (100, 1000)
@@ -143,7 +143,7 @@ config g =
     , maxLoopDepth = 5
     , noOfFunctions = 1
     , maxExpressionDepth = 5 -- Potentially Exponential (2^n)
-    , targetDTypes = [minBound .. maxBound] 
+    , targetDTypes = [minBound .. maxBound]
     , stdFunctions = standardFunctions'
       -- Variable
     , functions = mempty

@@ -1,20 +1,20 @@
 module GenFunc where
 
-import           Common
-import           CommonGen
-import           Control.Applicative         ((<|>))
-import           Control.Monad
-import           Control.Monad.Trans.State
-import qualified Data.IntMap                 as IntMap
-import           Data.Maybe                  (fromJust)
-import           Data.Traversable
-import qualified Data.Vector                 as V
-import           GenVectorizable
-import           Language.C.Data.Ident
-import           Language.C.Data.Node        (undefNode)
-import           Language.C.Data.Position    (nopos)
-import           Language.C.Syntax.AST
-import           Language.C.Syntax.Constants
+import Common
+import CommonGen
+import Control.Applicative         ((<|>))
+import Control.Monad
+import Control.Monad.Trans.State
+import Data.IntMap                 qualified as IntMap
+import Data.Maybe                  (fromJust)
+import Data.Traversable
+import Data.Vector                 qualified as V
+import GenVectorizable
+import Language.C.Data.Ident
+import Language.C.Data.Node        (undefNode)
+import Language.C.Data.Position    (nopos)
+import Language.C.Syntax.AST
+import Language.C.Syntax.Constants
 
 {-
 Goal:
