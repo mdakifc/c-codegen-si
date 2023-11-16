@@ -9,7 +9,7 @@ import Language.C.Data.Position  (nopos)
 import System.Random
 
 -- Standard Library Functions
-data StdFunc = CMalloc | CPrintf | CRand | CScanf
+data StdFunc = CMalloc | CPrintf | CRand | CScanf | CGetTimeOfDay | CStructTimeVal
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
@@ -119,10 +119,12 @@ getId = do
 stdFuncName :: StdFunc -> String
 stdFuncName v =
   case v of
-    CMalloc -> "malloc"
-    CPrintf -> "printf"
-    CRand   -> "rand"
-    CScanf  -> "scanf"
+    CMalloc        -> "malloc"
+    CPrintf        -> "printf"
+    CRand          -> "rand"
+    CScanf         -> "scanf"
+    CGetTimeOfDay  -> "gettimeofday"
+    CStructTimeVal -> "timeval"
 
 
 --------------------------------------------------------------------------------
@@ -140,10 +142,10 @@ config g =
     , maxSize = 1000
     , maxScalars = 10
     , maxFuncDepth = 500
-    , maxLoopDepth = 5
+    , maxLoopDepth = 5 -- Vectorizable loops
     , noOfFunctions = 1
     , maxExpressionDepth = 5 -- Potentially Exponential (2^n)
-    , targetDTypes = [minBound .. maxBound]
+    , targetDTypes = [DInt, DFloat] -- Target DTypes
     , stdFunctions = standardFunctions'
       -- Variable
     , functions = mempty

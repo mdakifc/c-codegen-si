@@ -10,7 +10,7 @@ import Language.C.Data.Ident
    Activates an index variable from the IndexVars list
     - Activates = assigns (start, end, stride)
     - The values of the parameter is either:
-        - (1) Integer Literal (TODO)
+        - (1) Integer Literal
               - start: [0, 10] -- Can be Uniform
               - end: [10, 10_000] -- TODO: Would want to use a skewed-left RV
               - stride: [1, 5] -- Can be Uniform

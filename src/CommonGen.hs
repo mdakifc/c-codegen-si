@@ -75,7 +75,11 @@ genRValueExpr dtype depth = do
         2 -> do
             expr1 <- genRValueExpr dtype (depth - 1)
             expr2 <- genRValueExpr dtype (depth - 1)
-            op <- chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+            op <-
+                case dtype of
+                    DInt -> chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+                    DChar -> chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+                    _ -> chooseFromList [CAddOp, CSubOp, CMulOp]
             pure $ CBinary op expr1 expr2 undefNode
         _ -> undefined
 

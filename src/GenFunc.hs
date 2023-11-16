@@ -102,7 +102,6 @@ constructFunc ident params body =
         []
         undefNode
      )
-     -- Declaration
      []
      body
      undefNode
@@ -283,4 +282,41 @@ constructScanf stdFunctionIdents varIdents =
 -- simplicity we consider all pointer size to be equal to sizeof (void *)
 constructSizeOf :: Maybe DType -> CExpr
 constructSizeOf mDtype = CSizeofType (mDtypeToCTypeDecl mDtype) undefNode
+
+{-
+   Generates the code equivalent to the following:
+   {
+    struct timeval start, end;
+    gettimeofday(&start, 0);
+    <stmt>
+    gettimeofday(&end, 0);
+    double passed = (end.tv_sec*1e6 + end.tv_usec) - (start.tv_sec*1e6 + start.tv_usec);
+    printf("Time: %lf\n", passed / 1e6);
+   }
+-}
+
+genWrappedTime :: GState CStat
+genWrappedTime = undefined
+
+-- Declares the identifier to be `struct timeval` type
+constructTimeValDecl :: StdFunctions -> Ident -> CDecl
+constructTimeValDecl stdFunctionIdents ident =
+  let
+    structTimeval :: CStructUnion =
+      CStruct
+      CStructTag
+      (Just $ stdFunctionIdents V.! fromEnum CStructTimeVal)
+      Nothing
+      []
+      undefNode
+
+   in CDecl
+    [CTypeSpec (CSUType structTimeval undefNode)]
+    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
+    undefNode
+
+constructGetTimeOfDay :: Ident -> CExpr
+constructGetTimeOfDay arg1Ident =
+  let arg1 :: CExpr = CUnary CAdrOp (CVar arg1Ident undefNode) undefNode
+  in CCall (CVar arg1Ident undefNode) [arg1, constructConstExpr 0] undefNode
 
