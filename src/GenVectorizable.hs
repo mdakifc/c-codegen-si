@@ -86,7 +86,8 @@ constructPragmaLabel targetStat = do
 -}
 genVectorizableBlock :: GState CStat
 genVectorizableBlock = do
-  noOfStats <- execRandGen (1, 5) -- TODO: Change hard-coded constant
+  maxLoopDepth' <- gets maxLoopDepth
+  noOfStats <- execRandGen (1, maxLoopDepth')
   ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
     dtype <- gets targetDTypes >>= chooseFromList
     flip CExpr undefNode . Just <$> genAssignExpr dtype
