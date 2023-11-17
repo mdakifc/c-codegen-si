@@ -129,9 +129,9 @@ genFuncBody = do
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
-  nLoops <- gets maxLoops >>= \m -> execRandGen (2, m)
+  nLoops <- gets loopRange >>= execRandGen
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
-    noNestedFor <- gets maxNestedLoops >>= \m -> execRandGen (1, m)
+    noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
     genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt targetStat]
   timeWrappedDeclAndInitStats :: [CBlockItem] <-

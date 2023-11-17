@@ -16,8 +16,8 @@ genFor nest = do
   -- 1. Activate an index variable
   (key, activeIndex) <- activateIndexVar
   -- 2. Generate 0 or more assign statements pre- and post- assign stats
-  preNoAssignStats <- execRandGen (0, 2) -- TODO: Change hard-coded constant
-  postNoAssignStats <- execRandGen (0, 2) -- TODO: Change hard-coded constant
+  preNoAssignStats <- gets loopDepthRange >>= execRandGen
+  postNoAssignStats <- gets loopDepthRange >>= execRandGen
   preAssignStats :: [CStat] <- replicateM preNoAssignStats $ do
     dtype <- gets targetDTypes >>= chooseFromList
     flip CExpr undefNode . Just <$> genAssignExpr dtype
@@ -86,8 +86,7 @@ constructPragmaLabel targetStat = do
 -}
 genVectorizableBlock :: GState CStat
 genVectorizableBlock = do
-  maxLoopDepth' <- gets maxLoopDepth
-  noOfStats <- execRandGen (1, maxLoopDepth')
+  noOfStats <- gets loopDepthRange >>= execRandGen
   ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
     dtype <- gets targetDTypes >>= chooseFromList
     flip CExpr undefNode . Just <$> genAssignExpr dtype

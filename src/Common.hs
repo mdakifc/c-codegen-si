@@ -43,28 +43,28 @@ type StdFunctions = V.Vector Ident
 data SProg = SProg
   {
     -- Potentially Constant
-    maxGlobals         :: Int -- Currently, arrays are generated globally
-  , maxDims            :: Int
-  , sizeRange          :: (Int, Int)
-  , maxSize            :: Int
-  , maxScalars         :: Int
-  , maxFuncDepth       :: Int
-  , maxLoopDepth       :: Int
-  , maxNestedLoops     :: Int
-  , maxLoops           :: Int
-  , noOfFunctions      :: Int
-  , maxExpressionDepth :: Int -- Potentially Exponential
-  , targetDTypes       :: [DType]
-  , stdFunctions       :: StdFunctions
+    maxGlobals           :: Int -- Currently, arrays are generated globally
+  , maxDims              :: Int
+  , sizeRange            :: (Int, Int)
+  , maxSize              :: Int
+  , maxScalars           :: Int
+  , maxFuncDepth         :: Int
+  , loopDepthRange       :: (Int, Int)
+  , nestedLoopRange      :: (Int, Int)
+  , loopRange            :: (Int, Int)
+  , expressionDepthRange :: (Int, Int) -- Potentially Exponential
+  , noOfFunctions        :: Int
+  , targetDTypes         :: [DType]
+  , stdFunctions         :: StdFunctions
     -- Variable
-  , functions          :: Functions
-  , generator          :: StdGen
-  , mDimArrs           :: MultiDimensionalArrays
-  , indexVars          :: IndexVars
-  , singletons         :: Singletons
-  , parameters         :: Parameters
-  , activeIndexes      :: ActiveIndexVars
-  , nId                :: Int
+  , functions            :: Functions
+  , generator            :: StdGen
+  , mDimArrs             :: MultiDimensionalArrays
+  , indexVars            :: IndexVars
+  , singletons           :: Singletons
+  , parameters           :: Parameters
+  , activeIndexes        :: ActiveIndexVars
+  , nId                  :: Int
   }
   deriving (Eq, Show)
 
@@ -148,11 +148,11 @@ config g =
     , maxSize = 1000
     , maxScalars = 10
     , maxFuncDepth = 5
-    , maxLoopDepth = 5 -- Vectorizable loops
-    , maxNestedLoops = 2
-    , maxLoops = 5
+    , loopDepthRange = (2, 5) -- Vectorizable loops
+    , nestedLoopRange = (1, 3)
+    , loopRange = (2, 5)
     , noOfFunctions = 1
-    , maxExpressionDepth = 5 -- Potentially Exponential (2^n)
+    , expressionDepthRange = (2, 5) -- Potentially Exponential
     , targetDTypes = [DInt, DFloat] -- Target DTypes
     , stdFunctions = standardFunctions'
       -- Variable

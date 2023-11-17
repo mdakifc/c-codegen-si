@@ -87,7 +87,7 @@ genRValueExpr dtype depth = do
 genAssignExpr :: DType -> GState CExpr
 genAssignExpr dtype = do
     lhs <- genLValueExpr dtype
-    rhs <- gets maxExpressionDepth >>= genRValueExpr dtype
+    rhs <- gets expressionDepthRange >>= execRandGen >>= genRValueExpr dtype
     pure $ CAssign CAssignOp lhs rhs undefNode
 
 
