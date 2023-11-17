@@ -50,6 +50,8 @@ data SProg = SProg
   , maxScalars         :: Int
   , maxFuncDepth       :: Int
   , maxLoopDepth       :: Int
+  , maxNestedLoops     :: Int
+  , maxLoops           :: Int
   , noOfFunctions      :: Int
   , maxExpressionDepth :: Int -- Potentially Exponential
   , targetDTypes       :: [DType]
@@ -125,7 +127,7 @@ stdFuncName v =
   case v of
     CMalloc        -> "malloc"
     CPrintf        -> "printf"
-    CRand          -> "rand"
+    CRand          -> "readRand"
     CScanf         -> "scanf"
     CGetTimeOfDay  -> "gettimeofday"
     CStructTimeVal -> "timeval"
@@ -147,6 +149,8 @@ config g =
     , maxScalars = 10
     , maxFuncDepth = 500
     , maxLoopDepth = 5 -- Vectorizable loops
+    , maxNestedLoops = 2
+    , maxLoops = 5
     , noOfFunctions = 1
     , maxExpressionDepth = 5 -- Potentially Exponential (2^n)
     , targetDTypes = [DInt, DFloat] -- Target DTypes

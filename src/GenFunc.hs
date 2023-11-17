@@ -111,9 +111,10 @@ constructParams params = (\ident -> constructSingleton ident DInt Nothing) <$> I
 
 genFuncBody :: GState CStat
 genFuncBody = do
+  stdFunctionIdents <- gets stdFunctions
   -- For each type:
   targetDTypeValues <- gets targetDTypes
-  topStats :: [[CBlockItem]] <- for targetDTypeValues $ \dtype -> do
+  declAndInitStats :: [CBlockItem] <- fmap concat . for targetDTypeValues $ \dtype -> do
     -- Generate Singletons
     nSingletons <- execRandGen (2, 5)
     singletonDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genSingletons dtype nSingletons
@@ -127,13 +128,15 @@ genFuncBody = do
     indexDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genIndexVars nIndexVars
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
-    -- TODO: Wrap with timing call
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
-  body :: [CBlockItem] <- (fmap CBlockStmt <$>) . replicateM 4 $ do
-    targetStat <- genVectorizableForForward
-    gets stdFunctions >>= flip genWrappedTime targetStat
-    -- pure $ concatMap CBlockDecl [singletonDecls]
-  pure $ CCompound [] (concat topStats ++ body) undefNode
+  nLoops <- gets maxLoops >>= \m -> execRandGen (2, m)
+  body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
+    noNestedFor <- gets maxNestedLoops >>= \m -> execRandGen (1, m)
+    targetStat <- genFor noNestedFor
+    genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt targetStat]
+  timeWrappedDeclAndInitStats :: [CBlockItem] <-
+    genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
+  pure $ CCompound [] (timeWrappedDeclAndInitStats ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)
@@ -306,11 +309,11 @@ constructSizeOf mDtype = CSizeofType (mDtypeToCTypeDecl mDtype) undefNode
    }
 -}
 
-genWrappedTime :: StdFunctions -> CStat -> GState CStat
-genWrappedTime stdFunctionIdents targetStat = do
-  -- C: struct timeval start, end;
-  startIdent <- createIdent "start"
-  endIdent <- createIdent "end"
+genWrappedTime :: StdFunctions -> String -> [CBlockItem] -> GState [CBlockItem]
+genWrappedTime stdFunctionIdents formatString targetItems = do
+  -- C: struct timeval start<n>, end<n>;
+  startIdent <- gets nId >>= \n -> createIdent ("start" ++ show n)
+  endIdent <- gets nId >>= \n -> createIdent ("end" ++ show n)
   tvSecIdent <- createIdent "tv_sec"
   tvUsecIdent <- createIdent "tv_usec"
   let
@@ -344,7 +347,6 @@ genWrappedTime stdFunctionIdents targetStat = do
         expr6 :: CExpr = CBinary CDivOp expr5 const1MExpr undefNode
        in expr6
   pure $
-    CCompound []
       [ -- start decl
         CBlockDecl startDecl
         -- end decl
@@ -352,13 +354,13 @@ genWrappedTime stdFunctionIdents targetStat = do
         -- populate start
       , CBlockStmt $ CExpr (Just gettimeofdayStartExpr) undefNode
         -- evaluate statement that's being measured
-      , CBlockStmt targetStat
-        -- populate end
-      , CBlockStmt $ CExpr (Just gettimeofdayEndExpr) undefNode
-        -- printf elapsed time
-      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents "Execution Time of the loop: %lf\n" [computeElapsedTimeExpr]) undefNode
       ]
-      undefNode
+      ++ targetItems ++
+      [ -- populate end
+        CBlockStmt $ CExpr (Just gettimeofdayEndExpr) undefNode
+        -- printf elapsed time
+      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents formatString [computeElapsedTimeExpr]) undefNode
+      ]
 
 -- Declares the identifier to be `struct timeval` type
 constructTimeValDecl :: StdFunctions -> Ident -> CDecl
