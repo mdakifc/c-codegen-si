@@ -356,7 +356,7 @@ genWrappedTime stdFunctionIdents targetStat = do
         -- populate end
       , CBlockStmt $ CExpr (Just gettimeofdayEndExpr) undefNode
         -- printf elapsed time
-      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents "Execution Time of the loop: %d" [computeElapsedTimeExpr]) undefNode
+      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents "Execution Time of the loop: %lf\n" [computeElapsedTimeExpr]) undefNode
       ]
       undefNode
 
