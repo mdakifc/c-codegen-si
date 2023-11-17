@@ -125,7 +125,7 @@ getId = do
 stdFuncName :: StdFunc -> String
 stdFuncName v =
   case v of
-    CMalloc        -> "malloc"
+    CMalloc        -> "bumpAllocate"
     CPrintf        -> "printf"
     CRand          -> "rand"
     CScanf         -> "scanf"
