@@ -127,7 +127,7 @@ stdFuncName v =
   case v of
     CMalloc        -> "malloc"
     CPrintf        -> "printf"
-    CRand          -> "readRand"
+    CRand          -> "rand"
     CScanf         -> "scanf"
     CGetTimeOfDay  -> "gettimeofday"
     CStructTimeVal -> "timeval"
