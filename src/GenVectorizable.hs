@@ -28,9 +28,9 @@ genFor nest = do
   nestedForStat :: CStat <- genFor (nest-1)
   let
     -- 4. Generate the for statement
-    loopStat :: CStat = constructFor activeIndex nestedForStat
+    loopStat :: CStat = constructFor activeIndex $ CCompound [] (CBlockStmt <$> (preAssignStats ++ [nestedForStat] ++ postAssignStats)) undefNode
     -- 5. Create the compount statement
-    resultingStat :: CStat = CCompound [] (CBlockStmt <$> (preAssignStats ++ [loopStat] ++ postAssignStats)) undefNode
+    resultingStat :: CStat = CCompound [] [CBlockStmt loopStat] undefNode
   -- 6. Deactivate Index var
   deactiveIndexVar key
   pure resultingStat
@@ -47,7 +47,7 @@ genVectorizableForForward :: GState CStat
 genVectorizableForForward = do
   -- 1. Activate an index variable
   (key, activeIndex) <- activateIndexVar
-  -- 2. TODO: Create a vectorizable loop body
+  -- 2. Create a vectorizable loop body
   --    -- Since the state is updated with the index variable we can create the loop body
   body <- genVectorizableBlock
   -- 3. Create the for loop

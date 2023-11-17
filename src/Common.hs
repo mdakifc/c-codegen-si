@@ -51,7 +51,7 @@ data SProg = SProg
   , maxFuncDepth         :: Int
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)
-  , loopRange            :: (Int, Int)
+  , noLoopRange          :: (Int, Int)
   , expressionDepthRange :: (Int, Int) -- Potentially Exponential
   , noOfFunctions        :: Int
   , targetDTypes         :: [DType]
@@ -149,8 +149,8 @@ config g =
     , maxScalars = 10
     , maxFuncDepth = 5
     , loopDepthRange = (2, 5) -- Vectorizable loops
-    , nestedLoopRange = (1, 3)
-    , loopRange = (2, 5)
+    , nestedLoopRange = (2, 3)
+    , noLoopRange = (5, 5)
     , noOfFunctions = 1
     , expressionDepthRange = (2, 5) -- Potentially Exponential
     , targetDTypes = [DInt, DFloat] -- Target DTypes

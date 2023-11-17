@@ -129,7 +129,7 @@ genFuncBody = do
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
-  nLoops <- gets loopRange >>= execRandGen
+  nLoops <- gets noLoopRange >>= execRandGen
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
