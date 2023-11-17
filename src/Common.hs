@@ -108,6 +108,10 @@ popFunctionScope key ident = do
           , parameters = mempty
           }
 
+createIdent :: String -> GState Ident
+createIdent idName = mkIdent nopos idName <$> getId
+
+
 getId :: GState Name
 getId = do
   sprog <- get

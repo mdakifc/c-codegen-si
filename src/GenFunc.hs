@@ -129,7 +129,9 @@ genFuncBody = do
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
     -- TODO: Wrap with timing call
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
-  body :: [CBlockItem] <- (fmap CBlockStmt <$>) $ replicateM 4 genVectorizableForForward
+  body :: [CBlockItem] <- (fmap CBlockStmt <$>) . replicateM 4 $ do
+    targetStat <- genVectorizableForForward
+    gets stdFunctions >>= flip genWrappedTime targetStat
     -- pure $ concatMap CBlockDecl [singletonDecls]
   pure $ CCompound [] (concat topStats ++ body) undefNode
 
@@ -273,9 +275,18 @@ constructMalloc stdFunctionIdents mDtype eSize =
 constructScanf :: StdFunctions -> [Ident] -> CExpr
 constructScanf stdFunctionIdents varIdents =
   let scanfIdent :: Ident = stdFunctionIdents V.! fromEnum CScanf
-      formatString :: CExpr = CConst . flip CStrConst undefNode . cString . unwords $ replicate (length varIdents) "%d"
+      formatStringExpr :: CExpr = CConst . flip CStrConst undefNode . cString . unwords $ replicate (length varIdents) "%d"
       arguments :: [CExpr] = flip (CUnary CAdrOp) undefNode . flip CVar undefNode <$> varIdents
-  in CCall (CVar scanfIdent undefNode) (formatString:arguments) undefNode
+  in CCall (CVar scanfIdent undefNode) (formatStringExpr:arguments) undefNode
+
+
+-- Unsafe in the C layer
+constructPrintf :: StdFunctions -> String -> [CExpr] -> CExpr
+constructPrintf stdFunctionIdents formatString arguments =
+  let printfIdent :: Ident = stdFunctionIdents V.! fromEnum CPrintf
+      formatStringExpr :: CExpr = CConst (CStrConst (cString formatString) undefNode)
+  in CCall (CVar printfIdent undefNode) (formatStringExpr:arguments) undefNode
+
 
 -- Well it is not guaranteed by the C standard that all pointer sizes are equal,
 -- but in most modern system all pointer sizes are usually equal. So, for
@@ -286,17 +297,68 @@ constructSizeOf mDtype = CSizeofType (mDtypeToCTypeDecl mDtype) undefNode
 {-
    Generates the code equivalent to the following:
    {
-    struct timeval start, end;
-    gettimeofday(&start, 0);
-    <stmt>
-    gettimeofday(&end, 0);
-    double passed = (end.tv_sec*1e6 + end.tv_usec) - (start.tv_sec*1e6 + start.tv_usec);
-    printf("Time: %lf\n", passed / 1e6);
+      struct timeval start, end;
+      gettimeofday(&start, 0);
+      <stmt>
+      gettimeofday(&end, 0);
+      double elapsed = ((end.tv_sec*1e6 + end.tv_usec) - (start.tv_sec*1e6 + start.tv_usec)) / 1e6;
+      printf("Time: %lf\n", elapsed);
    }
 -}
 
-genWrappedTime :: GState CStat
-genWrappedTime = undefined
+genWrappedTime :: StdFunctions -> CStat -> GState CStat
+genWrappedTime stdFunctionIdents targetStat = do
+  -- C: struct timeval start, end;
+  startIdent <- createIdent "start"
+  endIdent <- createIdent "end"
+  tvSecIdent <- createIdent "tv_sec"
+  tvUsecIdent <- createIdent "tv_usec"
+  let
+    startDecl :: CDecl = constructTimeValDecl stdFunctionIdents startIdent
+    endDecl :: CDecl = constructTimeValDecl stdFunctionIdents endIdent
+    -- C: gettimeofday(&start, 0);
+    gettimeofdayStartExpr :: CExpr = constructGetTimeOfDay stdFunctionIdents startIdent
+    -- C: gettimeofday(&end, 0);
+    gettimeofdayEndExpr :: CExpr = constructGetTimeOfDay stdFunctionIdents endIdent
+    -- C: ((end.tv_sec*1e6 + end.tv_usec) - (start.tv_sec*1e6 + start.tv_usec)) / 1e6;
+    --      --- expr1 ----                   ---- expr2 -----
+    --      ----------- expr3 ----------     ------------- expr4 ------------
+    --      ----------------------------- expr5 -------------------------------
+    --      --------------------------------- expr6 ---------------------------------
+    computeElapsedTimeExpr :: CExpr =
+      let
+        const1MExpr :: CExpr = CConst (CFloatConst (cFloat 1e6) undefNode)
+        accessEndTvSecExpr :: CExpr =
+          CMember (CVar endIdent undefNode) tvSecIdent False undefNode
+        accessEndTvUsecExpr :: CExpr =
+          CMember (CVar endIdent undefNode) tvUsecIdent False undefNode
+        accessStartTvSecExpr :: CExpr =
+          CMember (CVar startIdent undefNode) tvSecIdent False undefNode
+        accessStartTvUsecExpr :: CExpr =
+          CMember (CVar startIdent undefNode) tvUsecIdent False undefNode
+        expr1 :: CExpr = CBinary CMulOp accessEndTvSecExpr const1MExpr undefNode
+        expr3 :: CExpr = CBinary CAddOp expr1 accessEndTvUsecExpr undefNode
+        expr2 :: CExpr = CBinary CMulOp accessStartTvSecExpr const1MExpr undefNode
+        expr4 :: CExpr = CBinary CAddOp expr2 accessStartTvUsecExpr undefNode
+        expr5 :: CExpr = CBinary CSubOp expr3 expr4 undefNode
+        expr6 :: CExpr = CBinary CDivOp expr5 const1MExpr undefNode
+       in expr6
+  pure $
+    CCompound []
+      [ -- start decl
+        CBlockDecl startDecl
+        -- end decl
+      , CBlockDecl endDecl
+        -- populate start
+      , CBlockStmt $ CExpr (Just gettimeofdayStartExpr) undefNode
+        -- evaluate statement that's being measured
+      , CBlockStmt targetStat
+        -- populate end
+      , CBlockStmt $ CExpr (Just gettimeofdayEndExpr) undefNode
+        -- printf elapsed time
+      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents "Execution Time of the loop: %d" [computeElapsedTimeExpr]) undefNode
+      ]
+      undefNode
 
 -- Declares the identifier to be `struct timeval` type
 constructTimeValDecl :: StdFunctions -> Ident -> CDecl
@@ -309,14 +371,13 @@ constructTimeValDecl stdFunctionIdents ident =
       Nothing
       []
       undefNode
-
-   in CDecl
+  in CDecl
     [CTypeSpec (CSUType structTimeval undefNode)]
     [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
     undefNode
 
-constructGetTimeOfDay :: Ident -> CExpr
-constructGetTimeOfDay arg1Ident =
+constructGetTimeOfDay :: StdFunctions -> Ident -> CExpr
+constructGetTimeOfDay stdFunctionIdents arg1Ident =
   let arg1 :: CExpr = CUnary CAdrOp (CVar arg1Ident undefNode) undefNode
-  in CCall (CVar arg1Ident undefNode) [arg1, constructConstExpr 0] undefNode
+  in CCall (CVar (stdFunctionIdents V.! fromEnum CGetTimeOfDay) undefNode) [arg1, constructConstExpr 0] undefNode
 
