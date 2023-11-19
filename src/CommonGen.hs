@@ -61,7 +61,7 @@ genLValueExpr dtype = do
         0 -> genArrayAccessExpr dtype
         -- Singleton
         1 -> do
-            mKI <- chooseSingleton dtype False
+            mKI <- chooseSingleton dtype True
             case mKI of
                 Just (key, ident) -> do
                     modify' (\s -> s { lValueSingletons = V.accum (flip $ IntMap.insert key) (lValueSingletons s) [(fromEnum dtype, ident)] } )
