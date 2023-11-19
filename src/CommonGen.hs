@@ -2,6 +2,7 @@ module CommonGen where
 
 import Common
 import Control.Monad.Trans.State
+import Data.IntMap                 qualified as IntMap
 import Data.Maybe                  (fromJust)
 import Data.Vector                 qualified as V
 import Language.C.Data.Ident
@@ -59,7 +60,13 @@ genLValueExpr dtype = do
         -- Access
         0 -> genArrayAccessExpr dtype
         -- Singleton
-        1 -> flip CVar undefNode <$> chooseSingleton dtype
+        1 -> do
+            mKI <- chooseSingleton dtype False
+            case mKI of
+                Just (key, ident) -> do
+                    modify' (\s -> s { lValueSingletons = V.accum (flip $ IntMap.insert key) (lValueSingletons s) [(fromEnum dtype, ident)] } )
+                    pure $ CVar ident undefNode
+                Nothing -> genLValueExpr dtype
         _ -> undefined
 
 
@@ -70,7 +77,11 @@ genRValueExpr dtype depth = do
         -- Access
         0 -> genArrayAccessExpr dtype
         -- Singleton
-        1 -> flip CVar undefNode <$> chooseSingleton dtype
+        1 -> do
+            mKI <- chooseSingleton dtype True
+            case mKI of
+              Just (_, singleton) -> pure $ CVar singleton undefNode
+              Nothing             -> genRValueExpr dtype depth
         -- Binary Op
         2 -> do
             expr1 <- genRValueExpr dtype (depth - 1)

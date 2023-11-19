@@ -4,6 +4,7 @@ import Common
 import CommonGen
 import Control.Monad
 import Control.Monad.Trans.State
+import Data.Vector               qualified as V
 import Language.C.Data.Ident
 import Language.C.Data.Node      (undefNode)
 import Language.C.Data.Position  (nopos)
@@ -87,6 +88,9 @@ constructPragmaLabel targetStat = do
 genVectorizableBlock :: GState CStat
 genVectorizableBlock = do
   noOfStats <- gets loopDepthRange >>= execRandGen
-  ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
+  res <- ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
     dtype <- gets targetDTypes >>= chooseFromList
     flip CExpr undefNode . Just <$> genAssignExpr dtype
+  -- Reset lValueSingletons
+  modify' (\s -> s {lValueSingletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty})
+  return res

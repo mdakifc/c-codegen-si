@@ -1,0 +1,13 @@
+{
+  "knobs": {
+    "maxDims":  2, 
+    "sizeRange": [100, 1000],
+    "loopDepthRange": [2, 5],
+    "nestedLoopRange": [2, 3],
+    "noLoopRange": [5, 5],
+    "expressionDepthRange": [2,5],
+    "noOfFunctions": 1,
+    "allDTypes": ["int", "char", "float", "double"],
+    "targetDTypes": ["int", "float"]
+  }
+}

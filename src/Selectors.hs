@@ -50,10 +50,15 @@ chooseKeyFromMap m = do
     let k = keys V.! i
     pure (k, m IntMap.! k)
 
-chooseSingleton :: DType -> GState Ident
-chooseSingleton dtype = do
-    (_, ident) <- gets ((V.! fromEnum dtype) . singletons) >>= chooseKeyFromMap
-    pure ident
+chooseSingleton :: DType -> Bool -> GState (Maybe (Int, Ident))
+chooseSingleton dtype skipExistingRValues = do
+    singletons' <- gets ((V.! fromEnum dtype) . singletons)
+    if skipExistingRValues
+        then do
+            lValueSingletons' <- gets ((V.! fromEnum dtype) . lValueSingletons)
+            let w =  IntMap.difference singletons' lValueSingletons'
+            if IntMap.size w == 0 then pure Nothing else Just <$> chooseKeyFromMap w
+        else Just <$> chooseKeyFromMap singletons'
 
 chooseArray :: DType -> GState ArrSpec
 chooseArray dtype = do

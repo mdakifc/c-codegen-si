@@ -1,6 +1,9 @@
 module Common where
 
 import Control.Monad.Trans.State
+import Data.Aeson                (FromJSON (..))
+import Data.Aeson                qualified as Ae
+import Data.Aeson.Types          (prependFailure, typeMismatch)
 import Data.IntMap               qualified as IntMap
 import Data.Vector               qualified as V
 import Language.C.Data           (Ident, Name (..))
@@ -15,6 +18,18 @@ data StdFunc = CMalloc | CPrintf | CRand | CScanf | CGetTimeOfDay | CStructTimeV
 -- Defined types
 data DType = DInt | DChar | DFloat | DDouble
     deriving (Eq, Show, Enum, Bounded)
+
+instance FromJSON DType where
+  parseJSON (Ae.String s) =
+    case s of
+      "int"    -> pure DInt
+      "char"   -> pure DChar
+      "float"  -> pure DFloat
+      "double" -> pure DDouble
+      _        -> fail "Invalid type value."
+  parseJSON invalid =
+    prependFailure "parsing DType failed, " (typeMismatch "String" invalid)
+
 
 data ActiveIndexVar = ActiveIndexVar
   { activeIndexIdent  :: Ident
@@ -43,12 +58,8 @@ type StdFunctions = V.Vector Ident
 data SProg = SProg
   {
     -- Potentially Constant
-    maxGlobals           :: Int -- Currently, arrays are generated globally
-  , maxDims              :: Int
+    maxDims              :: Int
   , sizeRange            :: (Int, Int)
-  , maxSize              :: Int
-  , maxScalars           :: Int
-  , maxFuncDepth         :: Int
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)
   , noLoopRange          :: (Int, Int)
@@ -64,6 +75,7 @@ data SProg = SProg
   , singletons           :: Singletons
   , parameters           :: Parameters
   , activeIndexes        :: ActiveIndexVars
+  , lValueSingletons     :: Singletons
   , nId                  :: Int
   }
   deriving (Eq, Show)
@@ -104,7 +116,7 @@ popFunctionScope key ident = do
           }
   -- Clear out the other variables
   modify' $ \sProg ->
-    sProg { mDimArrs = mempty -- TODO: Need to care about global scope
+    sProg { mDimArrs = mempty
           , indexVars = mempty
           , singletons = mempty
           , parameters = mempty
@@ -121,6 +133,11 @@ getId = do
   put $ sprog { nId = n+1 }
   pure $ Name n
 
+stdFuncIdents :: StdFunctions
+stdFuncIdents =
+    V.generate
+      (fromEnum (maxBound :: StdFunc) + 1)
+      (\i -> mkIdent nopos (stdFuncName $ toEnum i) (Name i))
 
 stdFuncName :: StdFunc -> String
 stdFuncName v =
@@ -133,35 +150,3 @@ stdFuncName v =
     CStructTimeVal -> "timeval"
 
 
---------------------------------------------------------------------------------
-------------------------------------TEST----------------------------------------
---------------------------------------------------------------------------------
-
-config :: StdGen -> SProg
-config g =
-  -- Generate the identifiers for the standard library functions that we need
-  let standardFunctions' = V.generate (fromEnum (maxBound :: StdFunc) + 1) (\i -> mkIdent nopos (stdFuncName $ toEnum i) (Name i))
-  in SProg
-    { maxGlobals = 5
-    , maxDims = 2
-    , sizeRange = (100, 1000)
-    , maxSize = 1000
-    , maxScalars = 10
-    , maxFuncDepth = 5
-    , loopDepthRange = (2, 5) -- Vectorizable loops
-    , nestedLoopRange = (2, 3)
-    , noLoopRange = (5, 5)
-    , noOfFunctions = 1
-    , expressionDepthRange = (2, 5) -- Potentially Exponential
-    , targetDTypes = [DInt, DFloat] -- Target DTypes
-    , stdFunctions = standardFunctions'
-      -- Variable
-    , functions = mempty
-    , generator = g
-    , mDimArrs = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
-    , singletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
-    , indexVars = mempty
-    , parameters = mempty
-    , activeIndexes = mempty
-    , nId = V.length standardFunctions'
-    }
