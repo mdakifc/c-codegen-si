@@ -120,7 +120,7 @@ genFuncBody = do
     singletonDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genSingletons dtype nSingletons
     -- Generate Arrays
     nArrays <- execRandGen (2, 5)
-    dims <- replicateM nArrays $ execRandGen (1,3)
+    dims <- gets maxDims >>= (\x -> replicateM nArrays $ execRandGen (1,x))
     (arrKeys, arrDecls) :: ([Int], [CBlockItem]) <- fmap (CBlockDecl <$>) . unzip <$> genHeapArrays dtype dims
     -- Generate Indexes
     --    = Number of dimensions of all the arrays

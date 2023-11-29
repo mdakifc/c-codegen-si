@@ -79,6 +79,7 @@ executable c-codegen-si
         , NumericUnderscores
         , ScopedTypeVariables
         , RecordWildCards
+        , LambdaCase
 
     -- Other library packages from which modules are imported.
     build-depends:    

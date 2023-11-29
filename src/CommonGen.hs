@@ -30,10 +30,12 @@ genArrayAccessExpr dtype = do
         genIndexArrExpr completeExpr [] = pure completeExpr
         genIndexArrExpr partialExpr (dim:rest) = do
             -- Choose an active index
-            activeIndexVar <- chooseActiveIndex
-            op <- chooseFromList [CAddOp, CSubOp, CMulOp]
+            modAccess' <- gets (head . modAccess)
+            (indexKey, activeIndexVar) <- chooseActiveIndex
+            -- TODO: change the for to (a*i + b)
+            indexOp <- chooseFromList [CAddOp, CMulOp]
             lit <-
-                case op of
+                case indexOp of
                   CMulOp -> execRandGen (1, 5)
                   _      -> execRandGen (0, 5)
             -- Generates a partial expression like:
@@ -41,17 +43,35 @@ genArrayAccessExpr dtype = do
             --                   ---------- expr1 ---------
             --                   ----------------- expr2 -----------
             --                   --------------------- expr3 ---------------
-            let indexExpr = CVar (activeIndexIdent activeIndexVar) undefined
-                indexBinOpExpr = CBinary op indexExpr (constructConstExpr lit) undefNode
+            let indexExpr = CVar (activeIndexIdent activeIndexVar) undefNode
+                indexBinOpExpr = CBinary indexOp indexExpr (constructConstExpr lit) undefNode
                 -- fromJust: should be safe at this point because every dimensions have a size
                 sizeExpr = constructExprFromEither $ fmap fromJust dim
                 expr1 = CBinary CRmdOp indexBinOpExpr sizeExpr undefNode
                 expr2 = CBinary CAddOp expr1 sizeExpr undefNode
                 expr3 = CBinary CRmdOp expr2 sizeExpr undefNode
                 partialExpr' = CIndex partialExpr expr3 undefNode
-            genIndexArrExpr partialExpr' rest
+            if modAccess'
+                then genIndexArrExpr partialExpr' rest
+                else do
+                    updateActiveIndex indexKey lit indexOp sizeExpr
+                    genIndexArrExpr (CIndex partialExpr indexBinOpExpr undefNode) rest
 
     genIndexArrExpr (CVar ident undefNode) dimSpec
+
+
+updateActiveIndex :: Int -> Integer -> CBinaryOp -> CExpr -> GState ()
+updateActiveIndex indexKey constLit binOp arraySizeExpr = do
+    let addToEnd :: ActiveIndexVar -> Maybe ActiveIndexVar
+        addToEnd s =
+            Just $ s { activeIndexEnd = (Right upperLimitExpr:) $ activeIndexEnd s }
+        upperLimitExpr =
+            case binOp of
+                CAddOp -> CBinary CSubOp arraySizeExpr (constructConstExpr constLit) undefNode
+                CMulOp -> CBinary CDivOp arraySizeExpr (constructConstExpr constLit) undefNode
+                _ -> error $ "updateActiveIndex: Unsupported binary operation - " <> show binOp
+    modify' (\s -> s { activeIndexes = IntMap.update addToEnd indexKey $ activeIndexes s })
+
 
 genLValueExpr :: DType -> GState CExpr
 genLValueExpr dtype = do
@@ -149,7 +169,7 @@ constructSingleton :: Ident -> DType -> Maybe CInit -> CDecl
 constructSingleton ident dtype mCInit =
     CDecl
         -- Type Specifier
-        [CTypeSpec (dtypeToCTypeSpecifier dtype)]
+        (CTypeSpec <$> dtypeToCTypeSpecifier dtype)
         -- Declarator
         [(Just $ constructSingletonDeclr ident, mCInit, Nothing)]
         undefNode
@@ -162,7 +182,7 @@ constructHeapArray :: Ident -> DType -> Int -> CDecl
 constructHeapArray ident dtype dims =
     CDecl
         -- Type Specifier
-        [CTypeSpec (dtypeToCTypeSpecifier dtype)]
+        (CTypeSpec <$> dtypeToCTypeSpecifier dtype)
         -- Declarator
         [(Just $ constructHeapArrayDeclr ident dims, Just constructInitializerZero, Nothing)]
         undefNode
@@ -183,17 +203,19 @@ constructInitializerZero =
     in CInitExpr expr undefNode
 
 dtypeToIdent :: DType -> String
-dtypeToIdent DInt    = "I"
-dtypeToIdent DChar   = "C"
-dtypeToIdent DFloat  = "F"
-dtypeToIdent DDouble = "D"
+dtypeToIdent DInt   = "I"
+dtypeToIdent DUInt  = "UI"
+dtypeToIdent DLong  = "L"
+dtypeToIdent DULong = "UL"
+dtypeToIdent DChar  = "C"
 
 
-dtypeToCTypeSpecifier :: DType -> CTypeSpec
-dtypeToCTypeSpecifier DInt    = CIntType undefNode
-dtypeToCTypeSpecifier DChar   = CCharType undefNode
-dtypeToCTypeSpecifier DFloat  = CFloatType undefNode
-dtypeToCTypeSpecifier DDouble = CDoubleType undefNode
+dtypeToCTypeSpecifier :: DType -> [CTypeSpec]
+dtypeToCTypeSpecifier DInt   = [CIntType undefNode]
+dtypeToCTypeSpecifier DUInt  = [CUnsigType undefNode, CIntType undefNode]
+dtypeToCTypeSpecifier DLong  = [CLongType undefNode]
+dtypeToCTypeSpecifier DULong = [CUnsigType undefNode, CIntType undefNode]
+dtypeToCTypeSpecifier DChar  = [CCharType undefNode]
 
 mDtypeToCTypeDecl :: Maybe DType -> CDecl
 mDtypeToCTypeDecl mDtype =
@@ -211,7 +233,7 @@ mDtypeToCTypeDecl mDtype =
         Just dtype ->
           -- <type>
           CDecl
-            [CTypeSpec (dtypeToCTypeSpecifier dtype)]
+            (CTypeSpec <$> dtypeToCTypeSpecifier dtype)
             []
             undefNode
 
@@ -224,4 +246,3 @@ constructExprFromEither e = do
   case e of
     Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
     Right ident     -> CVar ident undefNode
-

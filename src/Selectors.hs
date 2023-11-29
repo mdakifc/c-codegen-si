@@ -26,9 +26,9 @@ activateIndexVar = do
     modify' (\s -> s { indexVars = IntMap.delete key (indexVars s) } )
     -- TODO: Currently just doing (1)
     startVal <- execRandGen (0, 10)
-    endVal <- execRandGen (10, 10_000)
+    endVal <- execRandGen (1000, 50_000)
     strideVal <- execRandGen (1, 5)
-    let activeIndexVar = ActiveIndexVar ident (Left startVal) (Left endVal) (Left strideVal)
+    let activeIndexVar = ActiveIndexVar ident (Left startVal) [Left endVal] (Left strideVal)
     -- Add it to the active index variable list
     modify' (\s -> s { activeIndexes = IntMap.insert key activeIndexVar (activeIndexes s) } )
     pure (key, activeIndexVar)
@@ -65,10 +65,9 @@ chooseArray dtype = do
     (_, arrSpec) <- gets ((V.! fromEnum dtype) . mDimArrs) >>= chooseKeyFromMap
     pure arrSpec
 
-chooseActiveIndex :: GState ActiveIndexVar
+chooseActiveIndex :: GState (Int, ActiveIndexVar)
 chooseActiveIndex = do
-    (_, activeIndexVar) <- gets activeIndexes >>= chooseKeyFromMap
-    pure activeIndexVar
+    gets activeIndexes >>= chooseKeyFromMap
 
 chooseFromList :: [a] -> GState a
 chooseFromList xs = (xs !!) <$> execRandGen(0, length xs - 1) -- TODO: distribution

@@ -9,24 +9,27 @@ import Data.Vector               qualified as V
 import Language.C.Data           (Ident, Name (..))
 import Language.C.Data.Ident     (mkIdent)
 import Language.C.Data.Position  (nopos)
+import Language.C.Syntax.AST     (CExpr)
 import System.Random
 
 -- Standard Library Functions
 data StdFunc = CMalloc | CPrintf | CRand | CScanf | CGetTimeOfDay | CStructTimeVal
+             | CMin | CMax | CAp
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
-data DType = DInt | DChar | DFloat | DDouble
+data DType = DInt | DUInt | DLong | DULong | DChar
     deriving (Eq, Show, Enum, Bounded)
 
 instance FromJSON DType where
   parseJSON (Ae.String s) =
     case s of
-      "int"    -> pure DInt
-      "char"   -> pure DChar
-      "float"  -> pure DFloat
-      "double" -> pure DDouble
-      _        -> fail "Invalid type value."
+      "int"   -> pure DInt
+      "uint"  -> pure DUInt
+      "long"  -> pure DLong
+      "ulong" -> pure DULong
+      "char"  -> pure DChar
+      _       -> fail "Invalid type value."
   parseJSON invalid =
     prependFailure "parsing DType failed, " (typeMismatch "String" invalid)
 
@@ -34,10 +37,10 @@ instance FromJSON DType where
 data ActiveIndexVar = ActiveIndexVar
   { activeIndexIdent  :: Ident
   , activeIndexStart  :: Either Int Ident
-  , activeIndexEnd    :: Either Int Ident
+  , activeIndexEnd    :: [Either Int CExpr]
   , activeIndexStride :: Either Int Ident
   }
-  deriving (Eq, Show)
+  deriving (Show)
 
 -- Id of Array, Dimensions of array with either a constant size or an identifier to an integer
 type DimSpec = Either Int (Maybe Ident)
@@ -77,8 +80,10 @@ data SProg = SProg
   , activeIndexes        :: ActiveIndexVars
   , lValueSingletons     :: Singletons
   , nId                  :: Int
+  -- Dynamic Gen states
+  , modAccess            :: [Bool]
   }
-  deriving (Eq, Show)
+  deriving (Show)
 
 type GState a = State SProg a
 
@@ -148,5 +153,6 @@ stdFuncName v =
     CScanf         -> "scanf"
     CGetTimeOfDay  -> "gettimeofday"
     CStructTimeVal -> "timeval"
-
-
+    CMin           -> "MIN"
+    CMax           -> "MAX"
+    CAp            -> "ap"

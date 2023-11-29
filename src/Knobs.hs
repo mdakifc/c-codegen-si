@@ -16,6 +16,7 @@ data Knobs = Knobs
   , knobExpressionDepthRange :: (Int, Int) -- Potentially Exponential
   , knobNoOfFunctions        :: Int
   , knobTargetDTypes         :: [DType]
+  , knobUseModsInOuterLoop   :: Bool
   }
   deriving (Eq, Show)
 
@@ -31,7 +32,9 @@ instance FromJSON Knobs where
         <*> v .: "expressionDepthRange"
         <*> v .: "noOfFunctions"
         <*> v .: "targetDTypes"
+        <*> v .: "useModsInOuterLoop"
 
 loadKnobs :: FilePath -> IO (Maybe Knobs)
-loadKnobs = (Ae.decodeStrict <$>) . BS.readFile
+-- loadKnobs = (Ae.decodeStrict <$>) . BS.readFile
+loadKnobs filepath = BS.readFile filepath >>= Ae.throwDecodeStrict
 
