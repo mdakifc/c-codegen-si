@@ -83,6 +83,8 @@ data SProg = SProg
   , repeatFactor         :: Int
   -- Dynamic Gen states
   , modAccess            :: [Bool]
+  , allowDiagonalAccess  :: [Bool]
+  , immediateLoopIndexes :: [ActiveIndexVars] -- TODO: Change it to NonEmpty List
   }
   deriving (Show)
 

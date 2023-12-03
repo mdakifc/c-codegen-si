@@ -6,6 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.State
 import Data.IntMap               qualified as IntMap
 import Data.Vector               qualified as V
+import Debug.Trace
 import Language.C.Data.Ident
 import Language.C.Data.Node      (undefNode)
 import Language.C.Data.Position  (nopos)
@@ -15,6 +16,8 @@ import Selectors
 genFor :: Int -> GState CStat
 genFor 1 = genVectorizableForForward
 genFor nest = do
+  -- 0. Create scope for indexes
+  modify' (\s -> s {immediateLoopIndexes = IntMap.empty : immediateLoopIndexes s})
   -- 1. Activate an index variable
   (key, _) <- activateIndexVar
   -- 2. Generate 0 or more assign statements pre- and post- assign stats
@@ -29,9 +32,10 @@ genFor nest = do
   -- 3. Generate the next nested loop
   nestedForStat :: CStat <- genFor (nest-1)
   -- 4. Generate the for statement
-  loopStat :: CStat <-
-    flip constructFor (CCompound [] (CBlockStmt <$> (preAssignStats ++ [nestedForStat] ++ postAssignStats)) undefNode)
-    <$> gets ((IntMap.! key) . activeIndexes)
+  loopStat :: CStat <- do
+    indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
+    modify' (\s -> s { immediateLoopIndexes = tail $ immediateLoopIndexes s})
+    pure $ constructFor indexes (CCompound [] (CBlockStmt <$> (preAssignStats ++ [nestedForStat] ++ postAssignStats)) undefNode)
   let
     -- 5. Create the compount statement
     resultingStat :: CStat = CCompound [] [CBlockStmt loopStat] undefNode
@@ -49,41 +53,48 @@ Goal:
 -- (1) Loops with no nested control statements
 genVectorizableForForward :: GState CStat
 genVectorizableForForward = do
+  -- 0. Create scope for indexes
+  modify' (\s -> s {immediateLoopIndexes = IntMap.empty : immediateLoopIndexes s})
   -- 1. Activate an index variable
   (key, _) <- activateIndexVar
   -- 2. Create a vectorizable loop body
   --    -- Since the state is updated with the index variable we can create the loop body
   body <- genVectorizableBlock
-  -- 3. Create the for loop
   -- 4. Create a label that will be replaced with the pragma call
-  stat <- gets ((IntMap.! key) . activeIndexes) >>= constructPragmaLabel . flip constructFor body
+  indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
+  stat <- constructPragmaLabel $ constructFor indexes body
+  -- 5. Pop scope
+  modify' (\s -> s {immediateLoopIndexes = tail $ immediateLoopIndexes s})
   -- 6. Deactivate Index var
   deactiveIndexVar key
   pure stat
 
-constructFor :: ActiveIndexVar -> CStat -> CStat
-constructFor activeIndex body =
+constructFor :: [ActiveIndexVar] -> CStat -> CStat
+constructFor activeIndexes body =
   let
-    indexExpr :: CExpr = CVar (activeIndexIdent activeIndex) undefNode
-    initExpr :: CExpr = CAssign CAssignOp indexExpr (constructExprFromEither $ activeIndexStart activeIndex) undefNode
-    conditionExpr :: CExpr =
+    indexExpr :: ActiveIndexVar -> CExpr
+    indexExpr activeIndex = CVar (activeIndexIdent activeIndex) undefNode
+    initExpr :: ActiveIndexVar -> CExpr
+    initExpr activeIndex = CAssign CAssignOp (indexExpr activeIndex) (constructExprFromEither $ activeIndexStart activeIndex) undefNode
+    conditionExpr :: ActiveIndexVar -> CExpr
+    conditionExpr activeIndex =
       let
         listOfEitherToExpr :: [Either Int CExpr] -> [CExpr]
         listOfEitherToExpr xs =
           (<$> xs) $ \case
               Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
               Right expr      -> expr
-
-      in CBinary CLeOp indexExpr (constructMinMaxCall stdFuncIdents True . listOfEitherToExpr $ activeIndexEnd activeIndex) undefNode
-    updateExpr :: CExpr = CAssign CAddAssOp indexExpr (constructExprFromEither $ activeIndexStride activeIndex) undefNode
+      in CBinary CLeOp (indexExpr activeIndex) (constructMinMaxCall stdFuncIdents True . listOfEitherToExpr $ activeIndexEnd activeIndex) undefNode
+    updateExpr :: ActiveIndexVar -> CExpr
+    updateExpr activeIndex = CAssign CAddAssOp (indexExpr activeIndex) (constructExprFromEither $ activeIndexStride activeIndex) undefNode
     loopStat =
       CFor
-        (Left $ Just initExpr)
-        (Just conditionExpr)
-        (Just updateExpr)
+        (Left . Just . flip CComma undefNode $ fmap initExpr activeIndexes)
+        (Just . constructBinaryExprTree CLndOp $ fmap conditionExpr activeIndexes)
+        (Just . flip CComma undefNode $ fmap updateExpr activeIndexes)
         body
         undefNode
-  in loopStat
+  in trace (show activeIndexes) loopStat
 
 
 -- The corresponding statement will be repeated by the `repeatFactor`
@@ -120,13 +131,20 @@ constructPragmaLabel targetStat = do
 -}
 genVectorizableBlock :: GState CStat
 genVectorizableBlock = do
-  modify' (\s -> s {modAccess = False:modAccess s})
+  modify' (\s -> s
+    { modAccess = False:modAccess s
+    , allowDiagonalAccess = False:allowDiagonalAccess s
+    })
   noOfStats <- gets loopDepthRange >>= execRandGen
   res <- ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
     dtype <- gets targetDTypes >>= chooseFromList
     flip CExpr undefNode . Just <$> genAssignExpr dtype
   -- Reset lValueSingletons
-  modify' (\s -> s {lValueSingletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty, modAccess = tail $ modAccess s})
+  modify' (\s -> s
+    { lValueSingletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
+    , modAccess = tail $ modAccess s
+    , allowDiagonalAccess = tail $ allowDiagonalAccess s
+    })
   return res
 
 constructMinMaxCall :: StdFunctions -> Bool -> [CExpr] -> CExpr

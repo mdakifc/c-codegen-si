@@ -30,7 +30,7 @@ replacePragma haystack =
   let
     scalarInterpolationPragma = BS.unlines
         [ "\n#ifdef SI_COUNT"
-        , "#pragma clang loop scalar_interpolation_count(SI_COUNT)"
+        , "#pragma clang loop vectorize(assume_safety) scalar_interpolation_count(SI_COUNT)"
         , "#endif"
         ]
     pat = "pragma:"
@@ -67,4 +67,6 @@ initState Knobs {..} g =
     , nId = V.length stdFuncIdents
     , repeatFactor = knobRepeatFactor
     , modAccess = [False]
+    , allowDiagonalAccess = [True]
+    , immediateLoopIndexes = []
     }

@@ -30,7 +30,13 @@ activateIndexVar = do
     strideVal <- execRandGen (1, 5)
     let activeIndexVar = ActiveIndexVar ident (Left startVal) [Left endVal] (Left strideVal)
     -- Add it to the active index variable list
-    modify' (\s -> s { activeIndexes = IntMap.insert key activeIndexVar (activeIndexes s) } )
+    modify' (\s -> s
+        { activeIndexes = IntMap.insert key activeIndexVar (activeIndexes s)
+        , immediateLoopIndexes =
+            let f []     = error "activateIndexVar: Scope is empty"
+                f (x:xs) = IntMap.insert key activeIndexVar x:xs
+            in f $ immediateLoopIndexes s
+        } )
     pure (key, activeIndexVar)
 
 

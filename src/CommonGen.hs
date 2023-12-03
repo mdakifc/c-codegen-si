@@ -25,13 +25,21 @@ genArrayAccessExpr dtype = do
     -- 2. Recursively index all the dimensions with the active indexes
     --    2.1. Add, subtract or multiply a constant with the index variable
     --    2.2. Then mod with dimension's size to keep access within the bound.
-    --    TODO: Can we do something smarter to remove the mods?
-    let genIndexArrExpr :: CExpr -> [DimSpec] -> GState CExpr
-        genIndexArrExpr completeExpr [] = pure completeExpr
-        genIndexArrExpr partialExpr (dim:rest) = do
+    let genIndexArrExpr :: IntMap.IntMap ActiveIndexVar -> CExpr -> [DimSpec] -> GState CExpr
+        genIndexArrExpr _ completeExpr [] = pure completeExpr
+        genIndexArrExpr selectedIndexes partialExpr (dim:rest) = do
             -- Choose an active index
             modAccess' <- gets (head . modAccess)
-            (indexKey, activeIndexVar) <- chooseActiveIndex
+            (indexKey, activeIndexVar) <- do
+                allowDiagonalAccess' <- gets (head . allowDiagonalAccess)
+                if allowDiagonalAccess'
+                    then chooseActiveIndex
+                    else do
+                        indexes <- gets ((IntMap.\\ selectedIndexes) . activeIndexes)
+                        if IntMap.null indexes
+                            then activateIndexVar
+                            else chooseKeyFromMap indexes
+
             -- TODO: change the for to (a*i + b)
             indexOp <- chooseFromList [CAddOp, CMulOp]
             lit <-
@@ -43,7 +51,8 @@ genArrayAccessExpr dtype = do
             --                   ---------- expr1 ---------
             --                   ----------------- expr2 -----------
             --                   --------------------- expr3 ---------------
-            let indexExpr = CVar (activeIndexIdent activeIndexVar) undefNode
+            let genIndexArrExpr' = genIndexArrExpr $ IntMap.insert indexKey activeIndexVar selectedIndexes
+                indexExpr = CVar (activeIndexIdent activeIndexVar) undefNode
                 indexBinOpExpr = CBinary indexOp indexExpr (constructConstExpr lit) undefNode
                 -- fromJust: should be safe at this point because every dimensions have a size
                 sizeExpr = constructExprFromEither $ fmap fromJust dim
@@ -52,12 +61,12 @@ genArrayAccessExpr dtype = do
                 expr3 = CBinary CRmdOp expr2 sizeExpr undefNode
                 partialExpr' = CIndex partialExpr expr3 undefNode
             if modAccess'
-                then genIndexArrExpr partialExpr' rest
+                then genIndexArrExpr' partialExpr' rest
                 else do
                     updateActiveIndex indexKey lit indexOp sizeExpr
-                    genIndexArrExpr (CIndex partialExpr indexBinOpExpr undefNode) rest
+                    genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode) rest
 
-    genIndexArrExpr (CVar ident undefNode) dimSpec
+    genIndexArrExpr IntMap.empty (CVar ident undefNode) dimSpec
 
 
 updateActiveIndex :: Int -> Integer -> CBinaryOp -> CExpr -> GState ()
@@ -246,3 +255,11 @@ constructExprFromEither e = do
   case e of
     Left intLiteral -> constructConstExpr $ fromIntegral intLiteral
     Right ident     -> CVar ident undefNode
+
+-- Must be a NonEmpty List
+constructBinaryExprTree :: CBinaryOp -> [CExpr] -> CExpr
+constructBinaryExprTree _ [] = error "constructBinaryExprTree: List is empty"
+constructBinaryExprTree _ [x] = x
+constructBinaryExprTree op (x:xs) =
+    CBinary op x (constructBinaryExprTree op xs) undefNode
+

@@ -52,14 +52,19 @@ int ap(int (*f)(int, int), int n,...) {
 
 
 void* bumpAllocate(size_t s) {
-  if (s + size >= N) {
-    if (!exceeded) printf("Limit Exceeded.\n");
-    exceeded = 1;
+    
+#ifdef BUMP_ALLOCATE
+    if (s + size >= N) {
+        if (!exceeded) printf("Limit Exceeded.\n");
+        exceeded = 1;
+        return malloc(s);
+    }
+    void* ret = &buf[size];
+    size += s;
+    return ret;
+#else
     return malloc(s);
-  }
-  void* ret = &buf[size];
-  size += s;
-  return ret;
+#endif
 }
 
 int readRand() {
