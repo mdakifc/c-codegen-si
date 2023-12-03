@@ -133,7 +133,10 @@ genFuncBody = do
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
-    genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt targetStat]
+    repeatedStat <- do
+      repeatFactor' <- gets repeatFactor
+      genRepeatedStatement repeatFactor' targetStat
+    genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
   timeWrappedDeclAndInitStats :: [CBlockItem] <-
     genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
   pure $ CCompound [] (timeWrappedDeclAndInitStats ++ body) undefNode

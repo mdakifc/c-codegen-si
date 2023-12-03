@@ -85,6 +85,28 @@ constructFor activeIndex body =
         undefNode
   in loopStat
 
+
+-- The corresponding statement will be repeated by the `repeatFactor`
+-- Effectful, since it generates an index variable but doesn't update the singleton list
+genRepeatedStatement :: Int -> CStat -> GState CStat
+genRepeatedStatement repeatFactor stat = do
+  cNameId <- getId
+  let
+      name :: String = "i"
+      ident :: Ident = mkIdent nopos name cNameId
+      decl :: CDecl = constructSingleton ident DInt (Just constructInitializerZero)
+      indexExpr :: CExpr = CVar ident undefNode
+      conditionExpr :: CExpr = CBinary CLeOp indexExpr (constructConstExpr $ fromIntegral repeatFactor) undefNode
+      updateExpr :: CExpr = CUnary CPostIncOp indexExpr undefNode
+  pure $
+    CFor
+      (Right decl)
+      (Just conditionExpr)
+      (Just updateExpr)
+      stat
+      undefNode
+
+
 constructPragmaLabel :: CStat -> GState CStat
 constructPragmaLabel targetStat = do
   cNameId <- getId

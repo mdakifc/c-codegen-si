@@ -80,6 +80,7 @@ data SProg = SProg
   , activeIndexes        :: ActiveIndexVars
   , lValueSingletons     :: Singletons
   , nId                  :: Int
+  , repeatFactor         :: Int
   -- Dynamic Gen states
   , modAccess            :: [Bool]
   }

@@ -17,6 +17,7 @@ data Knobs = Knobs
   , knobNoOfFunctions        :: Int
   , knobTargetDTypes         :: [DType]
   , knobUseModsInOuterLoop   :: Bool
+  , knobRepeatFactor         :: Int
   }
   deriving (Eq, Show)
 
@@ -33,6 +34,7 @@ instance FromJSON Knobs where
         <*> v .: "noOfFunctions"
         <*> v .: "targetDTypes"
         <*> v .: "useModsInOuterLoop"
+        <*> v .: "repeatFactor"
 
 loadKnobs :: FilePath -> IO (Maybe Knobs)
 -- loadKnobs = (Ae.decodeStrict <$>) . BS.readFile

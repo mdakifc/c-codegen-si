@@ -65,5 +65,6 @@ initState Knobs {..} g =
     , activeIndexes = mempty
     , lValueSingletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
     , nId = V.length stdFuncIdents
+    , repeatFactor = knobRepeatFactor
     , modAccess = [False]
     }

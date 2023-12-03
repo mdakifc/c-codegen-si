@@ -9,6 +9,7 @@
     "noOfFunctions": 1,
     "allDTypes": ["int", "uint", "long", "ulong", "char"],
     "targetDTypes": ["int", "uint"],
-    "useModsInOuterLoop": true
+    "useModsInOuterLoop": true,
+    "repeatFactor": 20
   }
 }
