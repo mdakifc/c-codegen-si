@@ -6,7 +6,6 @@ import Control.Monad
 import Control.Monad.Trans.State
 import Data.IntMap               qualified as IntMap
 import Data.Vector               qualified as V
-import Debug.Trace
 import Language.C.Data.Ident
 import Language.C.Data.Node      (undefNode)
 import Language.C.Data.Position  (nopos)
@@ -94,7 +93,7 @@ constructFor activeIndexes body =
         (Just . flip CComma undefNode $ fmap updateExpr activeIndexes)
         body
         undefNode
-  in trace (show activeIndexes) loopStat
+  in loopStat
 
 
 -- The corresponding statement will be repeated by the `repeatFactor`
