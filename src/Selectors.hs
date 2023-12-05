@@ -52,8 +52,7 @@ deactiveIndexVar key = do
 chooseKeyFromMap :: IntMap.IntMap a -> GState (Int, a)
 chooseKeyFromMap m = do
     let keys :: V.Vector Int = V.fromList $ IntMap.keys m
-    i <- execRandGen (0, V.length keys - 1)
-    let k = keys V.! i
+    k <- chooseFromList keys
     pure (k, m IntMap.! k)
 
 chooseSingleton :: DType -> Bool -> GState (Maybe (Int, Ident))
@@ -75,8 +74,8 @@ chooseActiveIndex :: GState (Int, ActiveIndexVar)
 chooseActiveIndex = do
     gets activeIndexes >>= chooseKeyFromMap
 
-chooseFromList :: [a] -> GState a
-chooseFromList xs = (xs !!) <$> execRandGen(0, length xs - 1) -- TODO: distribution
+chooseFromList :: V.Vector a -> GState a
+chooseFromList xs = (xs V.!) <$> execRandGen(0, V.length xs - 1) -- TODO: distribution
 
 
 -- chooseFromVMap :: (SProg -> Map.Map k (a,b)) -> GState a

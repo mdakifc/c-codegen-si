@@ -68,7 +68,7 @@ data SProg = SProg
   , noLoopRange          :: (Int, Int)
   , expressionDepthRange :: (Int, Int) -- Potentially Exponential
   , noOfFunctions        :: Int
-  , targetDTypes         :: [DType]
+  , targetDTypes         :: V.Vector DType
   , stdFunctions         :: StdFunctions
     -- Variable
   , functions            :: Functions

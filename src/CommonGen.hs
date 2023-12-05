@@ -1,6 +1,7 @@
 module CommonGen where
 
 import Common
+import Control.Monad               (replicateM)
 import Control.Monad.Trans.State
 import Data.IntMap                 qualified as IntMap
 import Data.Maybe                  (fromJust)
@@ -100,29 +101,28 @@ genLValueExpr dtype = do
 
 
 genRValueExpr :: DType -> Int -> GState CExpr
-genRValueExpr dtype depth = do
-    p :: Int <- execRandGen(0, max 1 (min 2 depth))
-    case p of
-        -- Access
-        0 -> genArrayAccessExpr dtype
-        -- Singleton
-        1 -> do
-            mKI <- chooseSingleton dtype True
-            case mKI of
-              Just (_, singleton) -> pure $ CVar singleton undefNode
-              Nothing             -> genRValueExpr dtype depth
-        -- Binary Op
-        2 -> do
-            expr1 <- genRValueExpr dtype (depth - 1)
-            expr2 <- genRValueExpr dtype (depth - 1)
-            op <-
-                case dtype of
-                    DInt -> chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
-                    DChar -> chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
-                    _ -> chooseFromList [CAddOp, CSubOp, CMulOp]
-            pure $ CBinary op expr1 expr2 undefNode
-        _ -> undefined
-
+genRValueExpr dtype noOfBinOps = do
+    ops <- replicateM noOfBinOps $
+            chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+    operands <- replicateM (noOfBinOps + 1) $ do
+        let chooseOperand = do
+                p :: Int <- execRandGen(0, 2)
+                case p of
+                    -- Access
+                    0 -> genArrayAccessExpr dtype
+                    -- Singleton
+                    1 -> do
+                        mKI <- chooseSingleton dtype True
+                        case mKI of
+                          Just (key, ident) -> do
+                              modify' (\s -> s { lValueSingletons = V.accum (flip $ IntMap.insert key) (lValueSingletons s) [(fromEnum dtype, ident)] } )
+                              pure $ CVar ident undefNode
+                          Nothing             -> chooseOperand
+                    -- Constant
+                    2 -> constructConstExpr <$> execRandGen (0, 1000)
+                    _ -> undefined
+        chooseOperand
+    pure $ constructBinaryExprTree ops operands
 
 genAssignExpr :: DType -> GState CExpr
 genAssignExpr dtype = do
@@ -257,9 +257,8 @@ constructExprFromEither e = do
     Right ident     -> CVar ident undefNode
 
 -- Must be a NonEmpty List
-constructBinaryExprTree :: CBinaryOp -> [CExpr] -> CExpr
-constructBinaryExprTree _ [] = error "constructBinaryExprTree: List is empty"
+constructBinaryExprTree :: [CBinaryOp] -> [CExpr] -> CExpr
 constructBinaryExprTree _ [x] = x
-constructBinaryExprTree op (x:xs) =
-    CBinary op x (constructBinaryExprTree op xs) undefNode
-
+constructBinaryExprTree (op:rest) (x:xs) =
+    CBinary op x (constructBinaryExprTree rest xs) undefNode
+constructBinaryExprTree _ _ = error "constructBinaryExprTree: List is empty"

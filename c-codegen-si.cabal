@@ -75,6 +75,7 @@ executable c-codegen-si
     -- LANGUAGE extensions used by modules in this package.
     default-extensions:
           OverloadedStrings
+        , OverloadedLists
         , ImportQualifiedPost
         , NumericUnderscores
         , ScopedTypeVariables

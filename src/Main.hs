@@ -53,7 +53,7 @@ initState Knobs {..} g =
     , noLoopRange = knobNoLoopRange
     , noOfFunctions = knobNoOfFunctions
     , expressionDepthRange = knobExpressionDepthRange -- Potentially Exponential
-    , targetDTypes = knobTargetDTypes -- Target DTypes
+    , targetDTypes = V.fromList knobTargetDTypes -- Target DTypes
     , stdFunctions = stdFuncIdents
       -- Variable
     , functions = mempty

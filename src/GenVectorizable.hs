@@ -21,21 +21,21 @@ genFor nest = do
   -- 1. Activate an index variable
   (key, _) <- activateIndexVar
   -- 2. Generate 0 or more assign statements pre- and post- assign stats
-  preNoAssignStats <- gets loopDepthRange >>= execRandGen
-  postNoAssignStats <- gets loopDepthRange >>= execRandGen
-  preAssignStats :: [CStat] <- replicateM preNoAssignStats $ do
-    dtype <- gets targetDTypes >>= chooseFromList
-    flip CExpr undefNode . Just <$> genAssignExpr dtype
-  postAssignStats :: [CStat] <- replicateM postNoAssignStats $ do
-    dtype <- gets targetDTypes >>= chooseFromList
-    flip CExpr undefNode . Just <$> genAssignExpr dtype
+  -- preNoAssignStats <- gets loopDepthRange >>= execRandGen
+  -- postNoAssignStats <- gets loopDepthRange >>= execRandGen
+  -- preAssignStats :: [CStat] <- replicateM preNoAssignStats $ do
+  --   dtype <- gets targetDTypes >>= chooseFromList
+  --   flip CExpr undefNode . Just <$> genAssignExpr dtype
+  -- postAssignStats :: [CStat] <- replicateM postNoAssignStats $ do
+  --   dtype <- gets targetDTypes >>= chooseFromList
+  --   flip CExpr undefNode . Just <$> genAssignExpr dtype
   -- 3. Generate the next nested loop
   nestedForStat :: CStat <- genFor (nest-1)
   -- 4. Generate the for statement
   loopStat :: CStat <- do
     indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
     modify' (\s -> s { immediateLoopIndexes = tail $ immediateLoopIndexes s})
-    pure $ constructFor indexes (CCompound [] (CBlockStmt <$> (preAssignStats ++ [nestedForStat] ++ postAssignStats)) undefNode)
+    pure $ constructFor indexes (CCompound [] (CBlockStmt <$> [nestedForStat]) undefNode)
   let
     -- 5. Create the compount statement
     resultingStat :: CStat = CCompound [] [CBlockStmt loopStat] undefNode
@@ -90,7 +90,7 @@ constructFor activeIndexes body =
     loopStat =
       CFor
         (Left . Just . flip CComma undefNode $ fmap initExpr activeIndexes)
-        (Just . constructBinaryExprTree CLndOp $ fmap conditionExpr activeIndexes)
+        (Just . constructBinaryExprTree (repeat CLndOp) $ fmap conditionExpr activeIndexes)
         (Just . flip CComma undefNode $ fmap updateExpr activeIndexes)
         body
         undefNode

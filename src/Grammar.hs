@@ -2,7 +2,6 @@ module Grammar where
 
 import System.Random
 
--- data Program = Body
 
 data Stat =
       VariableDef
@@ -12,6 +11,7 @@ data Stat =
     | VLoopF
     -- | VLoopB
  deriving (Eq, Ord, Enum, Show)
+
 
 data VExpr =
         Constant
