@@ -2,10 +2,10 @@
   "knobs": {
     "maxDims":  2, 
     "sizeRange": [100, 1000],
-    "loopDepthRange": [1, 2],
+    "loopDepthRange": [2, 4],
     "nestedLoopRange": [1, 3],
-    "noLoopRange": [10, 20],
-    "expressionDepthRange": [2, 3],
+    "noLoopRange": [1, 1],
+    "expressionDepthRange": [2, 4],
     "noOfFunctions": 1,
     "allDTypes": ["int", "uint", "long", "ulong", "char"],
     "targetDTypes": ["int", "uint"],
