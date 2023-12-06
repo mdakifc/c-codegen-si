@@ -26,20 +26,25 @@ genArrayAccessExpr dtype = do
     -- 2. Recursively index all the dimensions with the active indexes
     --    2.1. Add, subtract or multiply a constant with the index variable
     --    2.2. Then mod with dimension's size to keep access within the bound.
-    let genIndexArrExpr :: IntMap.IntMap ActiveIndexVar -> CExpr -> [DimSpec] -> GState CExpr
-        genIndexArrExpr _ completeExpr [] = pure completeExpr
-        genIndexArrExpr selectedIndexes partialExpr (dim:rest) = do
+    let genIndexArrExpr :: Int -> Int -> CExpr -> [DimSpec] -> GState CExpr
+        genIndexArrExpr _ _ completeExpr [] = pure completeExpr
+        genIndexArrExpr targetDim targetKey partialExpr (dim:rest) = do
             -- Choose an active index
             modAccess' <- gets (head . modAccess)
             (indexKey, activeIndexVar) <- do
                 allowDiagonalAccess' <- gets (head . allowDiagonalAccess)
                 if allowDiagonalAccess'
-                    then chooseActiveIndex
-                    else do
-                        indexes <- gets ((IntMap.\\ selectedIndexes) . activeIndexes)
-                        if IntMap.null indexes
-                            then activateIndexVar
-                            else chooseKeyFromMap indexes
+                   then chooseActiveIndex
+                   else if length rest == targetDim
+                        then gets (head . immediateLoopIndexes) >>= chooseKeyFromMap
+                        else do
+                            let selectNonTargetIndex :: GState (Int, ActiveIndexVar)
+                                selectNonTargetIndex = do
+                                    (k, a) <- gets activeIndexes >>= chooseKeyFromMap
+                                    if k == targetKey
+                                       then selectNonTargetIndex
+                                       else pure (k, a)
+                            selectNonTargetIndex
 
             -- TODO: change the for to (a*i + b)
             indexOp <- chooseFromList [CAddOp, CMulOp]
@@ -52,7 +57,7 @@ genArrayAccessExpr dtype = do
             --                   ---------- expr1 ---------
             --                   ----------------- expr2 -----------
             --                   --------------------- expr3 ---------------
-            let genIndexArrExpr' = genIndexArrExpr $ IntMap.insert indexKey activeIndexVar selectedIndexes
+            let genIndexArrExpr' = genIndexArrExpr targetDim targetKey
                 indexExpr = CVar (activeIndexIdent activeIndexVar) undefNode
                 indexBinOpExpr = CBinary indexOp indexExpr (constructConstExpr lit) undefNode
                 -- fromJust: should be safe at this point because every dimensions have a size
@@ -66,8 +71,9 @@ genArrayAccessExpr dtype = do
                 else do
                     updateActiveIndex indexKey lit indexOp sizeExpr
                     genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode) rest
-
-    genIndexArrExpr IntMap.empty (CVar ident undefNode) dimSpec
+    targetDim <- execRandGen (1, length dimSpec)
+    targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
+    genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode) dimSpec
 
 
 updateActiveIndex :: Int -> Integer -> CBinaryOp -> CExpr -> GState ()
