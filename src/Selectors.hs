@@ -3,6 +3,7 @@ module Selectors where
 import Common
 import Control.Monad.Trans.State
 import Data.IntMap               qualified as IntMap
+import Data.Maybe
 import Data.Vector               qualified as V
 import Language.C.Data.Ident
 
@@ -52,7 +53,7 @@ deactiveIndexVar key = do
 chooseKeyFromMap :: IntMap.IntMap a -> GState (Int, a)
 chooseKeyFromMap m = do
     let keys :: V.Vector Int = V.fromList $ IntMap.keys m
-    k <- chooseFromList keys
+    k <- chooseFromList Nothing keys
     pure (k, m IntMap.! k)
 
 chooseSingleton :: DType -> Bool -> GState (Maybe (Int, Ident))
@@ -74,13 +75,12 @@ chooseActiveIndex :: GState (Int, ActiveIndexVar)
 chooseActiveIndex = do
     gets activeIndexes >>= chooseKeyFromMap
 
-chooseFromList :: V.Vector a -> GState a
-chooseFromList xs = (xs V.!) <$> execRandGen(0, V.length xs - 1) -- TODO: distribution
 
+-- Assumption: the length of pdf and xs are the same
+chooseFromList :: Maybe (V.Vector Int) -> V.Vector a -> GState a
+chooseFromList Nothing xs = (xs V.!) <$> execRandGen(0, V.length xs - 1)
+chooseFromList (Just pdf) xs =
+    let cdf = V.scanl1 (+) pdf in do
+        value <- execRandGen (0, V.maximum cdf)
+        pure . (xs V.!) . fromMaybe (V.length xs - 1) $ V.findIndex (>value) cdf
 
--- chooseFromVMap :: (SProg -> Map.Map k (a,b)) -> GState a
--- chooseFromVMap f = do
---   mp <- f <$> get
---   let n = Map.size mp
---   i <- execRandGen (0, n-1)
---   pure . fst . snd $ Map.elemAt i mp

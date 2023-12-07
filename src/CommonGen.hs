@@ -31,23 +31,25 @@ genArrayAccessExpr dtype = do
         genIndexArrExpr targetDim targetKey partialExpr (dim:rest) = do
             -- Choose an active index
             modAccess' <- gets (head . modAccess)
-            (indexKey, activeIndexVar) <- do
+            -- (indexKey, activeIndexVar) <- do
+            mKI <- do
                 allowDiagonalAccess' <- gets (head . allowDiagonalAccess)
                 if allowDiagonalAccess'
-                   then chooseActiveIndex
+                   then Just <$> chooseActiveIndex
                    else if length rest == targetDim
-                        then gets (head . immediateLoopIndexes) >>= chooseKeyFromMap
+                        then Just <$> (gets (head . immediateLoopIndexes) >>= chooseKeyFromMap)
                         else do
-                            let selectNonTargetIndex :: GState (Int, ActiveIndexVar)
-                                selectNonTargetIndex = do
+                            let selectNonTargetIndex :: Int -> GState (Maybe (Int, ActiveIndexVar))
+                                selectNonTargetIndex depth = do
                                     (k, a) <- gets activeIndexes >>= chooseKeyFromMap
                                     if k == targetKey
-                                       then selectNonTargetIndex
-                                       else pure (k, a)
-                            selectNonTargetIndex
-
-            -- TODO: change the for to (a*i + b)
-            indexOp <- chooseFromList [CAddOp, CMulOp]
+                                       then if depth <= 0
+                                               then pure Nothing
+                                               else selectNonTargetIndex (depth-1)
+                                       else pure . Just $ (k, a)
+                            selectNonTargetIndex 5
+            constIndexVal <- execRandGen (0, 10) -- TODO
+            indexOp <- chooseFromList Nothing [CAddOp, CAddOp]
             lit <-
                 case indexOp of
                   CMulOp -> execRandGen (1, 5)
@@ -58,7 +60,10 @@ genArrayAccessExpr dtype = do
             --                   ----------------- expr2 -----------
             --                   --------------------- expr3 ---------------
             let genIndexArrExpr' = genIndexArrExpr targetDim targetKey
-                indexExpr = CVar (activeIndexIdent activeIndexVar) undefNode
+                indexExpr =
+                    case mKI of
+                        Just (_, activeIndexVar) -> CVar (activeIndexIdent activeIndexVar) undefNode
+                        Nothing -> constructConstExpr constIndexVal
                 indexBinOpExpr = CBinary indexOp indexExpr (constructConstExpr lit) undefNode
                 -- fromJust: should be safe at this point because every dimensions have a size
                 sizeExpr = constructExprFromEither $ fmap fromJust dim
@@ -69,7 +74,9 @@ genArrayAccessExpr dtype = do
             if modAccess'
                 then genIndexArrExpr' partialExpr' rest
                 else do
-                    updateActiveIndex indexKey lit indexOp sizeExpr
+                    case mKI of
+                        Just (indexKey, _) -> updateActiveIndex indexKey lit indexOp sizeExpr
+                        Nothing -> pure ()
                     genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode) rest
     targetDim <- execRandGen (1, length dimSpec)
     targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
@@ -109,7 +116,7 @@ genLValueExpr dtype = do
 genRValueExpr :: DType -> Int -> GState CExpr
 genRValueExpr dtype noOfBinOps = do
     ops <- replicateM noOfBinOps $
-            chooseFromList [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+            chooseFromList Nothing [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
     operands <- replicateM (noOfBinOps + 1) $ do
         let chooseOperand = do
                 p :: Int <- execRandGen(0, 2)

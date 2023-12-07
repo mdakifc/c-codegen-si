@@ -136,7 +136,7 @@ genVectorizableBlock = do
     })
   noOfStats <- gets loopDepthRange >>= execRandGen
   res <- ((flip (CCompound []) undefNode . fmap CBlockStmt)  <$>) . replicateM noOfStats $ do
-    dtype <- gets targetDTypes >>= chooseFromList
+    dtype <- gets targetDTypes >>= chooseFromList Nothing
     flip CExpr undefNode . Just <$> genAssignExpr dtype
   -- Reset lValueSingletons
   modify' (\s -> s
