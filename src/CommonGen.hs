@@ -5,6 +5,7 @@ import Control.Monad               (replicateM)
 import Control.Monad.Trans.State
 import Data.IntMap                 qualified as IntMap
 import Data.Maybe                  (fromJust)
+import Data.Tuple                  (swap)
 import Data.Vector                 qualified as V
 import Language.C.Data.Ident
 import Language.C.Data.Node        (undefNode)
@@ -50,8 +51,7 @@ genArrayAccessExpr dtype = do
                             selectNonTargetIndex 5
             constIndexVal <- execRandGen (0, 10) -- TODO
             indexOp <- chooseFromList Nothing [CAddOp, CAddOp]
-            lit <-
-                case indexOp of
+            lit <- case indexOp of
                   CMulOp -> execRandGen (1, 5)
                   _      -> execRandGen (0, 5)
             -- Generates a partial expression like:
@@ -78,7 +78,11 @@ genArrayAccessExpr dtype = do
                         Just (indexKey, _) -> updateActiveIndex indexKey lit indexOp sizeExpr
                         Nothing -> pure ()
                     genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode) rest
-    targetDim <- execRandGen (1, length dimSpec)
+    targetDim <- do
+        ir <- gets isReduction
+        if ir
+            then pure $ length dimSpec + 1
+            else execRandGen (1, length dimSpec)
     targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
     genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode) dimSpec
 
@@ -139,10 +143,28 @@ genRValueExpr dtype noOfBinOps = do
 
 genAssignExpr :: DType -> GState CExpr
 genAssignExpr dtype = do
-    lhs <- genLValueExpr dtype
-    rhs <- gets expressionDepthRange >>= execRandGen >>= genRValueExpr dtype
-    pure $ CAssign CAssignOp lhs rhs undefNode
-
+    op <- uncurry chooseFromList . swap . fmap Just . V.unzip $
+          [ (CAssignOp, 20)
+          , (CMulAssOp, 1)
+          , (CAddAssOp, 10)
+          , (CSubAssOp, 10)
+          , (CShlAssOp, 5)
+          , (CShrAssOp, 5)
+          , (CAndAssOp, 5)
+          , (CXorAssOp, 5)
+          , (COrAssOp , 5)
+          ]
+    case op of
+      CAssignOp -> do
+            lhs <- genLValueExpr dtype
+            rhs <- gets expressionDepthRange >>= execRandGen >>= genRValueExpr dtype
+            pure $ CAssign CAssignOp lhs rhs undefNode
+      _ -> do
+          modify' (\s -> s {isReduction = allowReduction s})
+          lhs <- genLValueExpr dtype
+          modify' (\s -> s {isReduction = False})
+          rhs <- gets expressionDepthRange >>= execRandGen >>= genRValueExpr dtype
+          pure $ CAssign op lhs rhs undefNode
 
 --------------------------------------------------------------------------------
 ---------------------------- Generate Variables --------------------------------

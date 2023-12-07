@@ -55,6 +55,7 @@ initState Knobs {..} g =
     , expressionDepthRange = knobExpressionDepthRange -- Potentially Exponential
     , targetDTypes = V.fromList knobTargetDTypes -- Target DTypes
     , stdFunctions = stdFuncIdents
+    , allowReduction = knobAllowReduction
       -- Variable
     , functions = mempty
     , generator = g
@@ -69,4 +70,5 @@ initState Knobs {..} g =
     , modAccess = [False]
     , allowDiagonalAccess = [True]
     , immediateLoopIndexes = []
+    , isReduction = False
     }

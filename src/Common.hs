@@ -70,6 +70,7 @@ data SProg = SProg
   , noOfFunctions        :: Int
   , targetDTypes         :: V.Vector DType
   , stdFunctions         :: StdFunctions
+  , allowReduction       :: Bool
     -- Variable
   , functions            :: Functions
   , generator            :: StdGen
@@ -85,6 +86,7 @@ data SProg = SProg
   , modAccess            :: [Bool]
   , allowDiagonalAccess  :: [Bool]
   , immediateLoopIndexes :: [ActiveIndexVars] -- TODO: Change it to NonEmpty List
+  , isReduction          :: Bool
   }
   deriving (Show)
 
