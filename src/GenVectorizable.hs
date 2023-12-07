@@ -32,7 +32,7 @@ genFor nest = do
   nestedForStat :: CStat <- genFor (nest-1)
   effectfulStat :: CStat <- do
     expr <- gets (head . expressionBucket)
-    pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d\n" [expr]
+    pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
   -- 4. Generate the for statement
   loopStat :: CStat <- do
     indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
