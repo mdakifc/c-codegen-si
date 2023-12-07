@@ -71,4 +71,5 @@ initState Knobs {..} g =
     , allowDiagonalAccess = [True]
     , immediateLoopIndexes = []
     , isReduction = False
+    , expressionBucket = []
     }

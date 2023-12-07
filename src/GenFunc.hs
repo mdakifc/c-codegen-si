@@ -286,14 +286,6 @@ constructScanf stdFunctionIdents varIdents =
   in CCall (CVar scanfIdent undefNode) (formatStringExpr:arguments) undefNode
 
 
--- Unsafe in the C layer
-constructPrintf :: StdFunctions -> String -> [CExpr] -> CExpr
-constructPrintf stdFunctionIdents formatString arguments =
-  let printfIdent :: Ident = stdFunctionIdents V.! fromEnum CPrintf
-      formatStringExpr :: CExpr = CConst (CStrConst (cString formatString) undefNode)
-  in CCall (CVar printfIdent undefNode) (formatStringExpr:arguments) undefNode
-
-
 -- Well it is not guaranteed by the C standard that all pointer sizes are equal,
 -- but in most modern system all pointer sizes are usually equal. So, for
 -- simplicity we consider all pointer size to be equal to sizeof (void *)

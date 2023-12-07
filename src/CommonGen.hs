@@ -27,11 +27,10 @@ genArrayAccessExpr dtype = do
     -- 2. Recursively index all the dimensions with the active indexes
     --    2.1. Add, subtract or multiply a constant with the index variable
     --    2.2. Then mod with dimension's size to keep access within the bound.
-    let genIndexArrExpr :: Int -> Int -> CExpr -> [DimSpec] -> GState CExpr
+    let genIndexArrExpr :: Int -> Int -> (CExpr, CExpr) -> [DimSpec] -> GState (CExpr, CExpr)
         genIndexArrExpr _ _ completeExpr [] = pure completeExpr
-        genIndexArrExpr targetDim targetKey partialExpr (dim:rest) = do
+        genIndexArrExpr targetDim targetKey (partialExpr, partialExprMod) (dim:rest) = do
             -- Choose an active index
-            modAccess' <- gets (head . modAccess)
             -- (indexKey, activeIndexVar) <- do
             mKI <- do
                 allowDiagonalAccess' <- gets (head . allowDiagonalAccess)
@@ -70,21 +69,20 @@ genArrayAccessExpr dtype = do
                 expr1 = CBinary CRmdOp indexBinOpExpr sizeExpr undefNode
                 expr2 = CBinary CAddOp expr1 sizeExpr undefNode
                 expr3 = CBinary CRmdOp expr2 sizeExpr undefNode
-                partialExpr' = CIndex partialExpr expr3 undefNode
-            if modAccess'
-                then genIndexArrExpr' partialExpr' rest
-                else do
-                    case mKI of
-                        Just (indexKey, _) -> updateActiveIndex indexKey lit indexOp sizeExpr
-                        Nothing -> pure ()
-                    genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode) rest
+                partialExpr' = CIndex partialExprMod expr3 undefNode
+            case mKI of
+                Just (indexKey, _) -> updateActiveIndex indexKey lit indexOp sizeExpr
+                Nothing -> pure ()
+            genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode, partialExpr') rest
     targetDim <- do
         ir <- gets isReduction
         if ir
             then pure $ length dimSpec + 1
             else execRandGen (1, length dimSpec)
     targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
-    genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode) dimSpec
+    (arrayExpr, arrayExprMod) <- genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode, CVar ident undefNode) dimSpec
+    modify' (\s -> s { expressionBucket = arrayExprMod:expressionBucket s})
+    pure arrayExpr
 
 
 updateActiveIndex :: Int -> Integer -> CBinaryOp -> CExpr -> GState ()
@@ -111,8 +109,12 @@ genLValueExpr dtype = do
             mKI <- chooseSingleton dtype True
             case mKI of
                 Just (key, ident) -> do
-                    modify' (\s -> s { lValueSingletons = V.accum (flip $ IntMap.insert key) (lValueSingletons s) [(fromEnum dtype, ident)] } )
-                    pure $ CVar ident undefNode
+                    let expr = CVar ident undefNode
+                    modify' $ \s -> s
+                        { lValueSingletons = V.accum (flip $ IntMap.insert key) (lValueSingletons s) [(fromEnum dtype, ident)]
+                        , expressionBucket = expr : expressionBucket s
+                        }
+                    pure expr
                 Nothing -> genLValueExpr dtype
         _ -> undefined
 
@@ -297,3 +299,12 @@ constructBinaryExprTree _ [x] = x
 constructBinaryExprTree (op:rest) (x:xs) =
     CBinary op x (constructBinaryExprTree rest xs) undefNode
 constructBinaryExprTree _ _ = error "constructBinaryExprTree: List is empty"
+
+
+-- Unsafe in the C layer
+constructPrintf :: StdFunctions -> String -> [CExpr] -> CExpr
+constructPrintf stdFunctionIdents formatString arguments =
+  let printfIdent :: Ident = stdFunctionIdents V.! fromEnum CPrintf
+      formatStringExpr :: CExpr = CConst (CStrConst (cString formatString) undefNode)
+  in CCall (CVar printfIdent undefNode) (formatStringExpr:arguments) undefNode
+

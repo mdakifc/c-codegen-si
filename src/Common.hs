@@ -87,6 +87,7 @@ data SProg = SProg
   , allowDiagonalAccess  :: [Bool]
   , immediateLoopIndexes :: [ActiveIndexVars] -- TODO: Change it to NonEmpty List
   , isReduction          :: Bool
+  , expressionBucket     :: [CExpr]
   }
   deriving (Show)
 
