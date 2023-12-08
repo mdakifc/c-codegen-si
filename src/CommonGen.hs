@@ -20,7 +20,7 @@ import Selectors
 --------------------------------------------------------------------------------
 -- Assumption: operations are done on the same dtype of variables
 
-genArrayAccessExpr :: DType -> GState CExpr
+genArrayAccessExpr :: DType -> GState (CExpr, CExpr)
 genArrayAccessExpr dtype = do
     -- 1. Choose an array => (ident, dimension specification)
     (ident, dimSpec) <- chooseArray dtype
@@ -80,9 +80,7 @@ genArrayAccessExpr dtype = do
             then pure $ length dimSpec + 1
             else execRandGen (1, length dimSpec)
     targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
-    (arrayExpr, arrayExprMod) <- genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode, CVar ident undefNode) dimSpec
-    modify' (\s -> s { expressionBucket = arrayExprMod:expressionBucket s})
-    pure arrayExpr
+    genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode, CVar ident undefNode) dimSpec
 
 
 updateActiveIndex :: Int -> Integer -> CBinaryOp -> CExpr -> GState ()
@@ -103,7 +101,10 @@ genLValueExpr dtype = do
     p :: Int <- execRandGen(0,1)
     case p of
         -- Access
-        0 -> genArrayAccessExpr dtype
+        0 -> do
+            (arrayExpr, arrayExprMod) <- genArrayAccessExpr dtype
+            modify' (\s -> s { expressionBucket = arrayExprMod:expressionBucket s})
+            pure arrayExpr
         -- Singleton
         1 -> do
             mKI <- chooseSingleton dtype True
@@ -128,7 +129,7 @@ genRValueExpr dtype noOfBinOps = do
                 p :: Int <- execRandGen(0, 2)
                 case p of
                     -- Access
-                    0 -> genArrayAccessExpr dtype
+                    0 -> fst <$> genArrayAccessExpr dtype
                     -- Singleton
                     1 -> do
                         mKI <- chooseSingleton dtype True
@@ -180,7 +181,7 @@ genSingletons dtype n = do
     let
         name = "s" ++ dtypeToIdent dtype ++ show nSingleton
         ident = mkIdent nopos name cNameId
-        decl = constructSingleton ident dtype (Just constructInitializerZero)
+        decl = constructSingleton ident dtype (Just $ CInitExpr (constructRandomValue stdFuncIdents dtype) undefNode)
     updateSingletons dtype nSingleton ident
     (decl:) <$> genSingletons dtype (n-1)
 
@@ -308,3 +309,30 @@ constructPrintf stdFunctionIdents formatString arguments =
       formatStringExpr :: CExpr = CConst (CStrConst (cString formatString) undefNode)
   in CCall (CVar printfIdent undefNode) (formatStringExpr:arguments) undefNode
 
+-- Unsafe in the C layer
+constructFprintf :: Ident -> StdFunctions -> String -> [CExpr] -> CExpr
+constructFprintf out stdFunctionIdents formatString arguments =
+  let printfIdent :: Ident = stdFunctionIdents V.! fromEnum CFprintf
+      formatStringExpr :: CExpr = CConst (CStrConst (cString formatString) undefNode)
+      outExpr :: CExpr = CVar out undefNode
+  in CCall (CVar printfIdent undefNode) (outExpr:formatStringExpr:arguments) undefNode
+
+
+constructRandomValue :: StdFunctions -> DType -> CExpr
+constructRandomValue stdFunctionIdents dtype =
+  let
+    randIdent = stdFunctionIdents V.! fromEnum CRand
+    randCallExpr :: CExpr = CCall (CVar randIdent undefNode) [] undefNode
+  in case dtype of
+    DInt -> randCallExpr
+    DChar -> CBinary CRmdOp randCallExpr (constructConstExpr 256) undefNode
+    -- Fixed point values
+    _ ->
+      -- Constructs the following:
+      --  ((float)rand()/2147483647) * 1e6
+      let
+        expr1 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) randCallExpr undefNode
+        expr2 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) (constructConstExpr 2147483647) undefNode
+        expr3 :: CExpr = CBinary CDivOp expr1 expr2 undefNode
+        expr4 :: CExpr = CBinary CMulOp expr3 (constructConstExpr 1_000_000)  undefNode
+      in expr4

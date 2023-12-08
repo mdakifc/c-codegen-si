@@ -13,8 +13,8 @@ import Language.C.Syntax.AST     (CExpr)
 import System.Random
 
 -- Standard Library Functions
-data StdFunc = CMalloc | CPrintf | CRand | CScanf | CGetTimeOfDay | CStructTimeVal
-             | CMin | CMax | CAp
+data StdFunc = CMalloc | CPrintf | CFprintf | CRand | CScanf | CGetTimeOfDay | CStructTimeVal
+             | CMin | CMax | CAp | CStderr
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
@@ -59,14 +59,13 @@ type Functions = IntMap.IntMap (Ident, Parameters)
 type StdFunctions = V.Vector Ident
 
 data SProg = SProg
-  {
-    -- Potentially Constant
+  { -- Constant
     maxDims              :: Int
   , sizeRange            :: (Int, Int)
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)
   , noLoopRange          :: (Int, Int)
-  , expressionDepthRange :: (Int, Int) -- Potentially Exponential
+  , expressionDepthRange :: (Int, Int)
   , noOfFunctions        :: Int
   , targetDTypes         :: V.Vector DType
   , stdFunctions         :: StdFunctions
@@ -85,7 +84,7 @@ data SProg = SProg
   -- Dynamic Gen states
   , modAccess            :: [Bool]
   , allowDiagonalAccess  :: [Bool]
-  , immediateLoopIndexes :: [ActiveIndexVars] -- TODO: Change it to NonEmpty List
+  , immediateLoopIndexes :: [ActiveIndexVars]
   , isReduction          :: Bool
   , expressionBucket     :: [CExpr]
   }
@@ -155,6 +154,7 @@ stdFuncName v =
   case v of
     CMalloc        -> "bumpAllocate"
     CPrintf        -> "printf"
+    CFprintf       -> "fprintf"
     CRand          -> "rand"
     CScanf         -> "scanf"
     CGetTimeOfDay  -> "gettimeofday"
@@ -162,3 +162,4 @@ stdFuncName v =
     CMin           -> "MIN"
     CMax           -> "MAX"
     CAp            -> "ap"
+    CStderr        -> "stderr"

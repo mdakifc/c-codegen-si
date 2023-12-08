@@ -133,13 +133,17 @@ genFuncBody = do
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
+    effectfulStat :: CStat <- do
+      expr <- gets (head . expressionBucket)
+      modify' $ \s -> s { expressionBucket = [] }
+      pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
     repeatedStat <- do
       repeatFactor' <- gets repeatFactor
-      genRepeatedStatement repeatFactor' targetStat
+      genRepeatedStatement repeatFactor' $ CCompound [] [CBlockStmt targetStat, CBlockStmt effectfulStat] undefNode
     genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
-  timeWrappedDeclAndInitStats :: [CBlockItem] <-
-    genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
-  pure $ CCompound [] (timeWrappedDeclAndInitStats ++ body) undefNode
+  -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
+  --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
+  pure $ CCompound [] (declAndInitStats ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)
@@ -246,24 +250,6 @@ constructAllocateAndInitialize stdFunctionIdents dtype partialArrExpr ((indexIde
         undefNode
   in [allocStat, assignFor]
 
-constructRandomValue :: StdFunctions -> DType -> CExpr
-constructRandomValue stdFunctionIdents dtype =
-  let
-    randIdent = stdFunctionIdents V.! fromEnum CRand
-    randCallExpr :: CExpr = CCall (CVar randIdent undefNode) [] undefNode
-  in case dtype of
-    DInt -> randCallExpr
-    DChar -> CBinary CRmdOp randCallExpr (constructConstExpr 256) undefNode
-    -- Fixed point values
-    _ ->
-      -- Constructs the following:
-      --  ((float)rand()/2147483647) * 1e6
-      let
-        expr1 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) randCallExpr undefNode
-        expr2 :: CExpr = CCast (mDtypeToCTypeDecl (Just dtype)) (constructConstExpr 2147483647) undefNode
-        expr3 :: CExpr = CBinary CDivOp expr1 expr2 undefNode
-        expr4 :: CExpr = CBinary CMulOp expr3 (constructConstExpr 1_000_000)  undefNode
-      in expr4
 
 -- Construct a malloc call
 -- If mDtype is Nothing then it allocates with the size of of a void pointer
@@ -354,7 +340,7 @@ genWrappedTime stdFunctionIdents formatString targetItems = do
       [ -- populate end
         CBlockStmt $ CExpr (Just gettimeofdayEndExpr) undefNode
         -- printf elapsed time
-      , CBlockStmt $ CExpr (Just $ constructPrintf stdFunctionIdents formatString [computeElapsedTimeExpr]) undefNode
+      , CBlockStmt $ CExpr (Just $ constructFprintf (stdFuncIdents V.! fromEnum CStderr) stdFunctionIdents formatString [computeElapsedTimeExpr]) undefNode
       ]
 
 -- Declares the identifier to be `struct timeval` type

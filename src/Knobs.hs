@@ -13,7 +13,7 @@ data Knobs = Knobs
   , knobLoopDepthRange       :: (Int, Int)
   , knobNestedLoopRange      :: (Int, Int)
   , knobNoLoopRange          :: (Int, Int)
-  , knobExpressionDepthRange :: (Int, Int) -- Potentially Exponential
+  , knobExpressionDepthRange :: (Int, Int)
   , knobNoOfFunctions        :: Int
   , knobTargetDTypes         :: [DType]
   , knobUseModsInOuterLoop   :: Bool

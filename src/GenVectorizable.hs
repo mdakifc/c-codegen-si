@@ -30,21 +30,15 @@ genFor nest = do
   --   flip CExpr undefNode . Just <$> genAssignExpr dtype
   -- 3. Generate the next nested loop
   nestedForStat :: CStat <- genFor (nest-1)
-  effectfulStat :: CStat <- do
-    expr <- gets (head . expressionBucket)
-    pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
   -- 4. Generate the for statement
   loopStat :: CStat <- do
     indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
     modify' $ \s -> s
       { immediateLoopIndexes = tail $ immediateLoopIndexes s}
     pure $ constructFor indexes (CCompound [] (CBlockStmt <$> [nestedForStat]) undefNode)
-  let
-    -- 5. Create the compount statement
-    resultingStat :: CStat = CCompound [] [CBlockStmt loopStat, CBlockStmt effectfulStat] undefNode
   -- 6. Deactivate Index var
   deactiveIndexVar key
-  pure resultingStat
+  pure loopStat
 
 
 {-
