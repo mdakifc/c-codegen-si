@@ -140,7 +140,7 @@ genFuncBody = do
     repeatedStat <- do
       repeatFactor' <- gets repeatFactor
       genRepeatedStatement repeatFactor' $ CCompound [] [CBlockStmt targetStat, CBlockStmt effectfulStat] undefNode
-    genWrappedTime stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
+    genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
   pure $ CCompound [] (declAndInitStats ++ body) undefNode
@@ -288,7 +288,17 @@ constructSizeOf mDtype = CSizeofType (mDtypeToCTypeDecl mDtype) undefNode
       double elapsed = ((end.tv_sec*1e6 + end.tv_usec) - (start.tv_sec*1e6 + start.tv_usec)) / 1e6;
       printf("Time: %lf\n", elapsed);
    }
+   // or
+   {
+      clock_t start, end;
+      start = clock()
+      <stmt>
+      end = clock()
+      double elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
+      printf("Time: %lf\n", elapsed);
+   }
 -}
+
 
 genWrappedTime :: StdFunctions -> String -> [CBlockItem] -> GState [CBlockItem]
 genWrappedTime stdFunctionIdents formatString targetItems = do
@@ -343,6 +353,44 @@ genWrappedTime stdFunctionIdents formatString targetItems = do
       , CBlockStmt $ CExpr (Just $ constructFprintf (stdFuncIdents V.! fromEnum CStderr) stdFunctionIdents formatString [computeElapsedTimeExpr]) undefNode
       ]
 
+genWrappedTimeWithClock :: StdFunctions -> String -> [CBlockItem] -> GState [CBlockItem]
+genWrappedTimeWithClock stdFunctionIdents formatString targetItems = do
+  startIdent <- gets nId >>= \n -> createIdent ("start" ++ show n)
+  endIdent <- gets nId >>= \n -> createIdent ("end" ++ show n)
+  let
+    startDecl :: CDecl = constructClockTDecl stdFunctionIdents startIdent
+    endDecl :: CDecl = constructClockTDecl stdFunctionIdents endIdent
+    clockStartAssign :: CStat = constructClockCallStat stdFunctionIdents startIdent
+    clockEndAssign :: CStat = constructClockCallStat stdFunctionIdents endIdent
+    -- ((double) (end - start)) / CLOCKS_PER_SEC
+    --            -- expr1 --     --- expr2 ----
+    --  ------- expr3 --------
+    computeElapsedTimeExpr :: CExpr =
+      let expr1 :: CExpr =
+            CBinary CSubOp
+              (CVar endIdent undefNode)
+              (CVar startIdent undefNode)
+              undefNode
+          expr2 :: CExpr = CVar (stdFunctionIdents V.! fromEnum CCLOCKS_PER_SEC) undefNode
+          expr3 :: CExpr = CCast (mDtypeToCTypeDecl (Just DDouble)) expr1 undefNode
+      in CBinary CDivOp expr3 expr2 undefNode
+  pure $
+    [
+      CBlockDecl startDecl
+    , CBlockDecl endDecl
+    , CBlockStmt clockStartAssign
+    ]
+    ++ targetItems ++
+    [
+      CBlockStmt clockEndAssign
+    , CBlockStmt . flip CExpr undefNode . Just $
+        constructFprintf
+          (stdFunctionIdents V.! fromEnum CStderr)
+          stdFunctionIdents
+          formatString
+          [computeElapsedTimeExpr]
+    ]
+
 -- Declares the identifier to be `struct timeval` type
 constructTimeValDecl :: StdFunctions -> Ident -> CDecl
 constructTimeValDecl stdFunctionIdents ident =
@@ -364,3 +412,15 @@ constructGetTimeOfDay stdFunctionIdents arg1Ident =
   let arg1 :: CExpr = CUnary CAdrOp (CVar arg1Ident undefNode) undefNode
   in CCall (CVar (stdFunctionIdents V.! fromEnum CGetTimeOfDay) undefNode) [arg1, constructConstExpr 0] undefNode
 
+constructClockTDecl :: StdFunctions -> Ident -> CDecl
+constructClockTDecl stdFunctionIdents ident =
+  CDecl
+    [CTypeSpec (CTypeDef (stdFunctionIdents V.! fromEnum CClockT) undefNode)]
+    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
+    undefNode
+
+constructClockCallStat :: StdFunctions -> Ident -> CStat
+constructClockCallStat stdFunctionIdents ident =
+  let lhs :: CExpr = CVar ident undefNode
+      rhs :: CExpr = CCall (CVar (stdFunctionIdents V.! fromEnum CClock) undefNode) [] undefNode
+  in flip CExpr undefNode . Just $ CAssign CAssignOp lhs rhs undefNode

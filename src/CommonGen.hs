@@ -123,7 +123,7 @@ genLValueExpr dtype = do
 genRValueExpr :: DType -> Int -> GState CExpr
 genRValueExpr dtype noOfBinOps = do
     ops <- replicateM noOfBinOps $
-            chooseFromList Nothing [CAddOp, CSubOp, CMulOp, CXorOp, COrOp, CAndOp]
+            uncurry chooseFromList . swap . fmap Just $ V.unzip [(CAddOp, 20), (CSubOp, 20), (CMulOp, 10), (CXorOp, 1), (COrOp, 1), (CAndOp, 1)]
     operands <- replicateM (noOfBinOps + 1) $ do
         let chooseOperand = do
                 p :: Int <- execRandGen(0, 2)
@@ -250,19 +250,21 @@ constructInitializerZero =
     in CInitExpr expr undefNode
 
 dtypeToIdent :: DType -> String
-dtypeToIdent DInt   = "I"
-dtypeToIdent DUInt  = "UI"
-dtypeToIdent DLong  = "L"
-dtypeToIdent DULong = "UL"
-dtypeToIdent DChar  = "C"
+dtypeToIdent DInt    = "I"
+dtypeToIdent DUInt   = "UI"
+dtypeToIdent DLong   = "L"
+dtypeToIdent DULong  = "UL"
+dtypeToIdent DChar   = "C"
+dtypeToIdent DDouble = "D"
 
 
 dtypeToCTypeSpecifier :: DType -> [CTypeSpec]
-dtypeToCTypeSpecifier DInt   = [CIntType undefNode]
-dtypeToCTypeSpecifier DUInt  = [CUnsigType undefNode, CIntType undefNode]
-dtypeToCTypeSpecifier DLong  = [CLongType undefNode]
-dtypeToCTypeSpecifier DULong = [CUnsigType undefNode, CIntType undefNode]
-dtypeToCTypeSpecifier DChar  = [CCharType undefNode]
+dtypeToCTypeSpecifier DInt    = [CIntType undefNode]
+dtypeToCTypeSpecifier DUInt   = [CUnsigType undefNode, CIntType undefNode]
+dtypeToCTypeSpecifier DLong   = [CLongType undefNode]
+dtypeToCTypeSpecifier DULong  = [CUnsigType undefNode, CIntType undefNode]
+dtypeToCTypeSpecifier DChar   = [CCharType undefNode]
+dtypeToCTypeSpecifier DDouble = [CDoubleType undefNode]
 
 mDtypeToCTypeDecl :: Maybe DType -> CDecl
 mDtypeToCTypeDecl mDtype =
@@ -324,10 +326,9 @@ constructRandomValue stdFunctionIdents dtype =
     randIdent = stdFunctionIdents V.! fromEnum CRand
     randCallExpr :: CExpr = CCall (CVar randIdent undefNode) [] undefNode
   in case dtype of
-    DInt -> randCallExpr
     DChar -> CBinary CRmdOp randCallExpr (constructConstExpr 256) undefNode
     -- Fixed point values
-    _ ->
+    DDouble ->
       -- Constructs the following:
       --  ((float)rand()/2147483647) * 1e6
       let
@@ -336,3 +337,4 @@ constructRandomValue stdFunctionIdents dtype =
         expr3 :: CExpr = CBinary CDivOp expr1 expr2 undefNode
         expr4 :: CExpr = CBinary CMulOp expr3 (constructConstExpr 1_000_000)  undefNode
       in expr4
+    _ -> randCallExpr

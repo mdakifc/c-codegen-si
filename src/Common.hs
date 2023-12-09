@@ -14,11 +14,11 @@ import System.Random
 
 -- Standard Library Functions
 data StdFunc = CMalloc | CPrintf | CFprintf | CRand | CScanf | CGetTimeOfDay | CStructTimeVal
-             | CMin | CMax | CAp | CStderr
+             | CMin | CMax | CAp | CStderr | CClock | CClockT | CCLOCKS_PER_SEC
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
-data DType = DInt | DUInt | DLong | DULong | DChar
+data DType = DInt | DUInt | DLong | DULong | DChar | DDouble
     deriving (Eq, Show, Enum, Bounded)
 
 instance FromJSON DType where
@@ -152,14 +152,17 @@ stdFuncIdents =
 stdFuncName :: StdFunc -> String
 stdFuncName v =
   case v of
-    CMalloc        -> "bumpAllocate"
-    CPrintf        -> "printf"
-    CFprintf       -> "fprintf"
-    CRand          -> "rand"
-    CScanf         -> "scanf"
-    CGetTimeOfDay  -> "gettimeofday"
-    CStructTimeVal -> "timeval"
-    CMin           -> "MIN"
-    CMax           -> "MAX"
-    CAp            -> "ap"
-    CStderr        -> "stderr"
+    CMalloc         -> "bumpAllocate"
+    CPrintf         -> "printf"
+    CFprintf        -> "fprintf"
+    CRand           -> "rand"
+    CScanf          -> "scanf"
+    CGetTimeOfDay   -> "gettimeofday"
+    CStructTimeVal  -> "timeval"
+    CMin            -> "MIN"
+    CMax            -> "MAX"
+    CAp             -> "ap"
+    CStderr         -> "stderr"
+    CClock          -> "clock"
+    CClockT         -> "clock_t"
+    CCLOCKS_PER_SEC -> "CLOCKS_PER_SEC"

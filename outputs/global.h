@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <stdarg.h>
+#include <time.h>
+
 #define MAX(...) \
     ({ \
         int values[] = {__VA_ARGS__}; \
