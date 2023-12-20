@@ -9,6 +9,8 @@ data Knobs = Knobs
   {
     -- Potentially Constant
     knobMaxDims              :: Int
+  , knobNoOfSingletons       :: (Int, Int)
+  , knobNoOfArrays           :: (Int, Int)
   , knobSizeRange            :: (Int, Int)
   , knobLoopDepthRange       :: (Int, Int)
   , knobNestedLoopRange      :: (Int, Int)
@@ -26,7 +28,9 @@ instance FromJSON Knobs where
   parseJSON = withObject "Knobs" $ \v1 -> do
       val <- v1 .: "knobs"
       flip (withObject "Knobs") val $ \v -> Knobs
-        <$> (v .: "maxDims")
+        <$> v .: "maxDims"
+        <*> v .: "noOfSingletonRange"
+        <*> v .: "noOfArrayRange"
         <*> v .: "sizeRange"
         <*> v .: "loopDepthRange"
         <*> v .: "nestedLoopRange"

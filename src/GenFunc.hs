@@ -116,10 +116,10 @@ genFuncBody = do
   targetDTypeValues <- gets targetDTypes
   declAndInitStats :: [CBlockItem] <- fmap concat . for targetDTypeValues $ \dtype -> do
     -- Generate Singletons
-    nSingletons <- execRandGen (2, 5)
+    nSingletons <- gets noOfSingletonRange >>= execRandGen
     singletonDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genSingletons dtype nSingletons
     -- Generate Arrays
-    nArrays <- execRandGen (2, 5)
+    nArrays <- gets noOfArrayRange >>= execRandGen
     dims <- gets maxDims >>= (\x -> replicateM nArrays $ execRandGen (1,x))
     (arrKeys, arrDecls) :: ([Int], [CBlockItem]) <- fmap (CBlockDecl <$>) . unzip <$> genHeapArrays dtype dims
     -- Generate Indexes
@@ -133,13 +133,15 @@ genFuncBody = do
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
-    effectfulStat :: CStat <- do
-      expr <- gets (head . expressionBucket)
+    effectfulStats :: [CStat] <- do
+      usedExpressions <- gets expressionBucket
+      res <- for usedExpressions $ \expr -> do
+        pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
       modify' $ \s -> s { expressionBucket = [] }
-      pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
+      pure res
     repeatedStat <- do
       repeatFactor' <- gets repeatFactor
-      genRepeatedStatement repeatFactor' $ CCompound [] [CBlockStmt targetStat, CBlockStmt effectfulStat] undefNode
+      genRepeatedStatement repeatFactor' $ CCompound [] (CBlockStmt targetStat:(CBlockStmt <$> effectfulStats)) undefNode
     genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats

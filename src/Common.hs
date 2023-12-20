@@ -61,6 +61,8 @@ type StdFunctions = V.Vector Ident
 data SProg = SProg
   { -- Constant
     maxDims              :: Int
+  , noOfSingletonRange   :: (Int, Int)
+  , noOfArrayRange       :: (Int, Int)
   , sizeRange            :: (Int, Int)
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)

@@ -47,6 +47,8 @@ initState Knobs {..} g =
   -- Generate the identifiers for the standard library functions that we need
   SProg
     { maxDims = knobMaxDims
+    , noOfSingletonRange = knobNoOfSingletons
+    , noOfArrayRange = knobNoOfArrays
     , sizeRange = knobSizeRange
     , loopDepthRange = knobLoopDepthRange -- Vectorizable loops
     , nestedLoopRange = knobNestedLoopRange
