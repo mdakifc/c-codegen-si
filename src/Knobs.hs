@@ -15,7 +15,9 @@ data Knobs = Knobs
   , knobLoopDepthRange       :: (Int, Int)
   , knobNestedLoopRange      :: (Int, Int)
   , knobNoLoopRange          :: (Int, Int)
+  , knobStrideRange          :: (Int, Int)
   , knobExpressionDepthRange :: (Int, Int)
+  , knobWeightCoeffForDims   :: Int
   , knobNoOfFunctions        :: Int
   , knobTargetDTypes         :: [DType]
   , knobUseModsInOuterLoop   :: Bool
@@ -35,7 +37,9 @@ instance FromJSON Knobs where
         <*> v .: "loopDepthRange"
         <*> v .: "nestedLoopRange"
         <*> v .: "noLoopRange"
+        <*> v .: "strideRange"
         <*> v .: "expressionDepthRange"
+        <*> v .: "weightCoeffForDims"
         <*> v .: "noOfFunctions"
         <*> v .: "targetDTypes"
         <*> v .: "useModsInOuterLoop"

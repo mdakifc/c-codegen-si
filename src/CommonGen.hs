@@ -74,11 +74,18 @@ genArrayAccessExpr dtype = do
                 Just (indexKey, _) -> updateActiveIndex indexKey lit indexOp sizeExpr
                 Nothing -> pure ()
             genIndexArrExpr' (CIndex partialExpr indexBinOpExpr undefNode, partialExpr') rest
+    -- Pick the target dimension of the array which should use the immediate index
     targetDim <- do
         ir <- gets isReduction
         if ir
             then pure $ length dimSpec + 1
-            else execRandGen (1, length dimSpec)
+            -- The weights for choosing each dimension from the right
+            -- s^d, s^(d-1), ..., 1
+            else do
+                coeff <- gets weightCoeffForDims
+                let noOfDimensions = length dimSpec
+                -- TODO: slight chance of overflowing
+                chooseFromList (Just . V.fromList $ [coeff ^ i | i <- [1 .. noOfDimensions]]) [1 .. noOfDimensions]
     targetKey <- gets (head . IntMap.keys . head . immediateLoopIndexes)
     genIndexArrExpr (length dimSpec - targetDim) targetKey (CVar ident undefNode, CVar ident undefNode) dimSpec
 

@@ -67,8 +67,10 @@ data SProg = SProg
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)
   , noLoopRange          :: (Int, Int)
+  , strideRange          :: (Int, Int)
   , expressionDepthRange :: (Int, Int)
   , noOfFunctions        :: Int
+  , weightCoeffForDims   :: Int
   , targetDTypes         :: V.Vector DType
   , stdFunctions         :: StdFunctions
   , allowReduction       :: Bool

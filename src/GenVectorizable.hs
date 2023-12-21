@@ -18,7 +18,7 @@ genFor nest = do
   -- 0. Create scope for indexes
   modify' (\s -> s {immediateLoopIndexes = IntMap.empty : immediateLoopIndexes s})
   -- 1. Activate an index variable
-  (key, _) <- activateIndexVar
+  (key, _) <- activateIndexVar Nothing
   -- 2. Generate 0 or more assign statements pre- and post- assign stats
   -- preNoAssignStats <- gets loopDepthRange >>= execRandGen
   -- postNoAssignStats <- gets loopDepthRange >>= execRandGen
@@ -53,7 +53,7 @@ genVectorizableForForward = do
   -- 0. Create scope for indexes
   modify' (\s -> s {immediateLoopIndexes = IntMap.empty : immediateLoopIndexes s})
   -- 1. Activate an index variable
-  (key, _) <- activateIndexVar
+  (key, _) <- gets strideRange >>= activateIndexVar . Just
   -- 2. Create a vectorizable loop body
   --    -- Since the state is updated with the index variable we can create the loop body
   body <- genVectorizableBlock
