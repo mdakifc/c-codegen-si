@@ -180,6 +180,19 @@ genAssignExpr dtype = do
 ---------------------------- Generate Variables --------------------------------
 --------------------------------------------------------------------------------
 
+genHoistedVars :: Int -> GState [CDecl]
+genHoistedVars 0 = pure []
+genHoistedVars n = do
+    cNameId <- getId
+    nHVars <- gets (length . hoistedVars)
+    let
+        name = "n" ++ show nHVars
+        ident = mkIdent nopos name cNameId
+        decl = constructSingleton ident DInt (Just constructInitializerZero)
+    modify' (\s -> s { hoistedVars = ident:hoistedVars s })
+    (decl:) <$> genHoistedVars (n-1)
+
+
 genSingletons :: DType -> Int -> GState [CDecl]
 genSingletons _ 0 = pure []
 genSingletons dtype n = do

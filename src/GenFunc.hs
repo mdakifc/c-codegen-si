@@ -126,9 +126,12 @@ genFuncBody = do
     --    = Number of dimensions of all the arrays
     let nIndexVars = sum dims
     indexDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genIndexVars nIndexVars
+    -- Define a hoisted Variable
+    nHVars <- gets ((2*) . snd . loopDepthRange)
+    hoistedVar :: [CBlockItem] <- (CBlockDecl <$>) <$> genHoistedVars nHVars
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
-    pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
+    pure $ singletonDecls ++ arrDecls ++ indexDecls ++ hoistedVar ++ allocAndInit
   nLoops <- gets noLoopRange >>= execRandGen
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen

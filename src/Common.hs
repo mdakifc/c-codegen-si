@@ -85,6 +85,7 @@ data SProg = SProg
   , lValueSingletons     :: Singletons
   , nId                  :: Int
   , repeatFactor         :: Int
+  , hoistedVars          :: [Ident]
   -- Dynamic Gen states
   , modAccess            :: [Bool]
   , allowDiagonalAccess  :: [Bool]
