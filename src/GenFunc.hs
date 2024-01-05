@@ -126,13 +126,12 @@ genFuncBody = do
     --    = Number of dimensions of all the arrays
     let nIndexVars = sum dims
     indexDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genIndexVars nIndexVars
-    -- Define a hoisted Variable
-    nHVars <- gets ((2*) . snd . loopDepthRange)
-    hoistedVar :: [CBlockItem] <- (CBlockDecl <$>) <$> genHoistedVars nHVars
     -- Allocate memory for arrays
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
-    pure $ singletonDecls ++ arrDecls ++ indexDecls ++ hoistedVar ++ allocAndInit
+    pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
   nLoops <- gets noLoopRange >>= execRandGen
+  nHVars <- gets ((2*) . snd . loopDepthRange)
+  hoistedVarDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genHoistedVars nHVars
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
@@ -148,7 +147,8 @@ genFuncBody = do
     genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
-  pure $ CCompound [] (declAndInitStats ++ body) undefNode
+  -- Define a hoisted Variable
+  pure $ CCompound [] (declAndInitStats ++ hoistedVarDecls ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)
