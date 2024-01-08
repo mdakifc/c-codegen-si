@@ -1,6 +1,7 @@
 module Selectors where
 
 import Common
+import Control.Applicative       ((<|>))
 import Control.Monad.Trans.State
 import Data.IntMap               qualified as IntMap
 import Data.Maybe
@@ -20,15 +21,15 @@ import Language.C.Data.Ident
               - end: [dimension sizes]
               - stride: [Index, ?]
 -}
-activateIndexVar :: GState (Int, ActiveIndexVar)
-activateIndexVar = do
+activateIndexVar :: Maybe (Int, Int) -> GState (Int, ActiveIndexVar)
+activateIndexVar mStrideRange = do
     (key, ident) <- gets indexVars >>= chooseKeyFromMap
     -- Remove index from index variable list
     modify' (\s -> s { indexVars = IntMap.delete key (indexVars s) } )
     -- TODO: Currently just doing (1)
     startVal <- execRandGen (0, 10)
     endVal <- execRandGen (1000, 50_000)
-    strideVal <- execRandGen (1, 5)
+    strideVal <- execRandGen . fromJust $ mStrideRange <|> Just (1, 5)
     let activeIndexVar = ActiveIndexVar ident (Left startVal) [Left endVal] (Left strideVal)
     -- Add it to the active index variable list
     modify' (\s -> s

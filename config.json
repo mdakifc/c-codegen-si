@@ -1,11 +1,15 @@
 {
   "knobs": {
-    "maxDims":  1, 
+    "maxDims":  3,
+    "noOfSingletonRange": [2, 5],
+    "noOfArrayRange": [2, 5],
     "sizeRange": [100, 100],
     "loopDepthRange": [3, 7],
     "nestedLoopRange": [1, 3],
     "noLoopRange": [1, 1],
+    "strideRange": [1, 2],
     "expressionDepthRange": [1, 4],
+    "weightCoeffForDims": 4,
     "noOfFunctions": 1,
     "allDTypes": ["int", "uint", "long", "ulong", "char"],
     "targetDTypes": ["int", "uint"],

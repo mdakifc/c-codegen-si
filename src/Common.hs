@@ -61,12 +61,16 @@ type StdFunctions = V.Vector Ident
 data SProg = SProg
   { -- Constant
     maxDims              :: Int
+  , noOfSingletonRange   :: (Int, Int)
+  , noOfArrayRange       :: (Int, Int)
   , sizeRange            :: (Int, Int)
   , loopDepthRange       :: (Int, Int)
   , nestedLoopRange      :: (Int, Int)
   , noLoopRange          :: (Int, Int)
+  , strideRange          :: (Int, Int)
   , expressionDepthRange :: (Int, Int)
   , noOfFunctions        :: Int
+  , weightCoeffForDims   :: Int
   , targetDTypes         :: V.Vector DType
   , stdFunctions         :: StdFunctions
   , allowReduction       :: Bool
@@ -81,6 +85,7 @@ data SProg = SProg
   , lValueSingletons     :: Singletons
   , nId                  :: Int
   , repeatFactor         :: Int
+  , hoistedVars          :: [Ident]
   -- Dynamic Gen states
   , modAccess            :: [Bool]
   , allowDiagonalAccess  :: [Bool]

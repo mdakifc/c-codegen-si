@@ -47,10 +47,14 @@ initState Knobs {..} g =
   -- Generate the identifiers for the standard library functions that we need
   SProg
     { maxDims = knobMaxDims
+    , noOfSingletonRange = knobNoOfSingletons
+    , noOfArrayRange = knobNoOfArrays
     , sizeRange = knobSizeRange
     , loopDepthRange = knobLoopDepthRange -- Vectorizable loops
     , nestedLoopRange = knobNestedLoopRange
     , noLoopRange = knobNoLoopRange
+    , strideRange = knobStrideRange
+    , weightCoeffForDims = knobWeightCoeffForDims
     , noOfFunctions = knobNoOfFunctions
     , expressionDepthRange = knobExpressionDepthRange -- Potentially Exponential
     , targetDTypes = V.fromList knobTargetDTypes -- Target DTypes
@@ -65,6 +69,7 @@ initState Knobs {..} g =
     , parameters = mempty
     , activeIndexes = mempty
     , lValueSingletons = V.replicate (fromEnum (maxBound :: DType) + 1) mempty
+    , hoistedVars = []
     , nId = V.length stdFuncIdents
     , repeatFactor = knobRepeatFactor
     , modAccess = [False]
