@@ -38,7 +38,7 @@ genFor nest = do
     modify' $ \s -> s
       { immediateLoopIndexes = tail $ immediateLoopIndexes s}
     modify' (\s -> s { hoistedVars = hoistedIdent:hoistedVars s})
-    pure $ constructFor hoistedIdent indexes (CCompound [] (CBlockStmt <$> [nestedForStat]) undefNode)
+    pure $ constructFor Nothing hoistedIdent indexes (CCompound [] (CBlockStmt <$> [nestedForStat]) undefNode)
   -- 6. Deactivate Index var
   deactiveIndexVar key
   pure loopStat
@@ -64,7 +64,7 @@ genVectorizableForForward = do
   body <- genVectorizableBlock
   -- 4. Create a label that will be replaced with the pragma call
   indexes <- gets (IntMap.keys . head . immediateLoopIndexes) >>= (\indexes -> gets ((\m -> fmap (m IntMap.!) indexes) . activeIndexes))
-  stat <- constructPragmaLabel $ constructFor hoistedIdent indexes body
+  stat <- (\mLabel -> constructFor mLabel hoistedIdent indexes body) . Just <$> genPragmaLabel
   -- 5. Pop scope
   modify' (\s -> s { hoistedVars = hoistedIdent:hoistedVars s})
   modify' (\s -> s {immediateLoopIndexes = tail $ immediateLoopIndexes s})
@@ -74,9 +74,13 @@ genVectorizableForForward = do
 
 -- Constructs a for loop
 -- If the number of activeIndexes is 1, then it hoists it out of the loop body
-constructFor :: Ident -> [ActiveIndexVar] -> CStat -> CStat
-constructFor hoistedVar activeIndexes body =
+constructFor :: Maybe Ident -> Ident -> [ActiveIndexVar] -> CStat -> CStat
+constructFor mLabel hoistedVar activeIndexes body =
   let
+    wrapLabel stat =
+      case mLabel of
+        Nothing    -> stat
+        Just label -> constructPragmaLabel label stat
     indexExpr :: ActiveIndexVar -> CExpr
     indexExpr activeIndex = CVar (activeIndexIdent activeIndex) undefNode
     initExpr :: ActiveIndexVar -> CExpr
@@ -113,9 +117,9 @@ constructFor hoistedVar activeIndexes body =
                 hoistedVarExpr
                 (minExpr activeIndex)
                 undefNode
-            wrapped = CCompound [] [CBlockStmt hoisted, CBlockStmt $ loopStat [conditionExpr activeIndex hoistedVarExpr]] undefNode
+            wrapped = CCompound [] [CBlockStmt hoisted, CBlockStmt . wrapLabel $ loopStat [conditionExpr activeIndex hoistedVarExpr]] undefNode
            in wrapped
-       _ -> loopStat $ fmap (\i -> conditionExpr i (minExpr i)) activeIndexes
+       _ -> wrapLabel . loopStat $ fmap (\i -> conditionExpr i (minExpr i)) activeIndexes
 
 
 -- The corresponding statement will be repeated by the `repeatFactor`
@@ -138,13 +142,15 @@ genRepeatedStatement repeatFactor stat = do
       stat
       undefNode
 
+constructPragmaLabel :: Ident -> CStat -> CStat
+constructPragmaLabel ident targetStat = CLabel ident targetStat [] undefNode
 
-constructPragmaLabel :: CStat -> GState CStat
-constructPragmaLabel targetStat = do
+genPragmaLabel :: GState Ident
+genPragmaLabel = do
   cNameId <- getId
   let name = "pragma"
       ident = mkIdent nopos name cNameId
-  pure $ CLabel ident targetStat [] undefNode
+  pure ident
 
 
 {-
