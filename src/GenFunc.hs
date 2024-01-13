@@ -112,6 +112,8 @@ constructParams params = (\ident -> constructSingleton ident DInt Nothing) <$> I
 genFuncBody :: GState CStat
 genFuncBody = do
   stdFunctionIdents <- gets stdFunctions
+  -- Random seed: srand
+  srandStat <- CBlockStmt <$> genSRand
   -- For each type:
   targetDTypeValues <- gets targetDTypes
   declAndInitStats :: [CBlockItem] <- fmap concat . for targetDTypeValues $ \dtype -> do
@@ -148,7 +150,7 @@ genFuncBody = do
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
   -- Define a hoisted Variable
-  pure $ CCompound [] (declAndInitStats ++ hoistedVarDecls ++ body) undefNode
+  pure $ CCompound [] ([srandStat] ++ declAndInitStats ++ hoistedVarDecls ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)

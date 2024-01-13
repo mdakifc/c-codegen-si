@@ -179,6 +179,17 @@ genAssignExpr dtype = do
 --------------------------------------------------------------------------------
 ---------------------------- Generate Variables --------------------------------
 --------------------------------------------------------------------------------
+genSRand :: GState CStat
+genSRand =  do
+    cNameId <- getId
+    let name = "seed"
+        ident = mkIdent nopos name cNameId
+    nParams <- gets (IntMap.size . parameters)
+    srandIdent <- gets ((V.! fromEnum CSRand) . stdFunctions)
+    updateParams nParams ident
+    pure . flip CExpr undefNode . Just $
+        CCall (CVar srandIdent undefNode) [CVar ident undefNode] undefNode
+
 
 genHoistedVars :: Int -> GState [CDecl]
 genHoistedVars 0 = pure []
@@ -358,3 +369,4 @@ constructRandomValue stdFunctionIdents dtype =
         expr4 :: CExpr = CBinary CMulOp expr3 (constructConstExpr 1_000_000)  undefNode
       in expr4
     _ -> randCallExpr
+
