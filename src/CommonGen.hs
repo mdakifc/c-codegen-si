@@ -153,17 +153,20 @@ genRValueExpr dtype noOfBinOps = do
 
 genAssignExpr :: DType -> GState CExpr
 genAssignExpr dtype = do
+    allowRed <- gets allowReduction
     op <- uncurry chooseFromList . swap . fmap Just . V.unzip $
-          [ (CAssignOp, 20)
-          , (CMulAssOp, 1)
-          , (CAddAssOp, 10)
-          , (CSubAssOp, 10)
-          , (CShlAssOp, 5)
-          , (CShrAssOp, 5)
-          , (CAndAssOp, 5)
-          , (CXorAssOp, 5)
-          , (COrAssOp , 5)
-          ]
+        if allowRed
+          then [ (CAssignOp, 20)
+               , (CMulAssOp, 1)
+               , (CAddAssOp, 10)
+               , (CSubAssOp, 10)
+               , (CShlAssOp, 2)
+               , (CShrAssOp, 2)
+               , (CAndAssOp, 2)
+               , (CXorAssOp, 2)
+               , (COrAssOp , 2)
+               ]
+          else [(CAssignOp, 1)]
     case op of
       CAssignOp -> do
             lhs <- genLValueExpr dtype
@@ -172,6 +175,7 @@ genAssignExpr dtype = do
       _ -> do
           modify' (\s -> s {isReduction = allowReduction s})
           lhs <- genLValueExpr dtype
+          -- We don't care about only accessing the outermost dimension.
           modify' (\s -> s {isReduction = False})
           rhs <- gets expressionDepthRange >>= execRandGen >>= genRValueExpr dtype
           pure $ CAssign op lhs rhs undefNode
