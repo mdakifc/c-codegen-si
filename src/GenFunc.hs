@@ -137,16 +137,16 @@ genFuncBody = do
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
+    wrappedTargetStatWithTime <- genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt targetStat]
     effectfulStats :: [CStat] <- do
       usedExpressions <- gets expressionBucket
       res <- for usedExpressions $ \expr -> do
         pure . flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d, " [expr]
       modify' $ \s -> s { expressionBucket = [] }
       pure res
-    repeatedStat <- do
-      repeatFactor' <- gets repeatFactor
-      genRepeatedStatement repeatFactor' $ CCompound [] (CBlockStmt targetStat:(CBlockStmt <$> effectfulStats)) undefNode
-    genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt repeatedStat]
+    do repeatFactor' <- gets repeatFactor
+       genRepeatedStatement repeatFactor' $ CCompound [] (wrappedTargetStatWithTime ++ (CBlockStmt <$> effectfulStats)) undefNode
+
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
   -- Define a hoisted Variable
@@ -398,36 +398,3 @@ genWrappedTimeWithClock stdFunctionIdents formatString targetItems = do
           [computeElapsedTimeExpr]
     ]
 
--- Declares the identifier to be `struct timeval` type
-constructTimeValDecl :: StdFunctions -> Ident -> CDecl
-constructTimeValDecl stdFunctionIdents ident =
-  let
-    structTimeval :: CStructUnion =
-      CStruct
-      CStructTag
-      (Just $ stdFunctionIdents V.! fromEnum CStructTimeVal)
-      Nothing
-      []
-      undefNode
-  in CDecl
-    [CTypeSpec (CSUType structTimeval undefNode)]
-    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
-    undefNode
-
-constructGetTimeOfDay :: StdFunctions -> Ident -> CExpr
-constructGetTimeOfDay stdFunctionIdents arg1Ident =
-  let arg1 :: CExpr = CUnary CAdrOp (CVar arg1Ident undefNode) undefNode
-  in CCall (CVar (stdFunctionIdents V.! fromEnum CGetTimeOfDay) undefNode) [arg1, constructConstExpr 0] undefNode
-
-constructClockTDecl :: StdFunctions -> Ident -> CDecl
-constructClockTDecl stdFunctionIdents ident =
-  CDecl
-    [CTypeSpec (CTypeDef (stdFunctionIdents V.! fromEnum CClockT) undefNode)]
-    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
-    undefNode
-
-constructClockCallStat :: StdFunctions -> Ident -> CStat
-constructClockCallStat stdFunctionIdents ident =
-  let lhs :: CExpr = CVar ident undefNode
-      rhs :: CExpr = CCall (CVar (stdFunctionIdents V.! fromEnum CClock) undefNode) [] undefNode
-  in flip CExpr undefNode . Just $ CAssign CAssignOp lhs rhs undefNode

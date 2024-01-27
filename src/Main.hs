@@ -72,6 +72,7 @@ initState Knobs {..} g =
     , hoistedVars = []
     , nId = V.length stdFuncIdents
     , repeatFactor = knobRepeatFactor
+    , timeLimit = knobTimeLimit
     , modAccess = [False]
     , allowDiagonalAccess = [True]
     , immediateLoopIndexes = []

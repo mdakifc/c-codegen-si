@@ -33,7 +33,7 @@ Here's the description of the parameters that are passed to the fuzzer. ("--" is
     -- The number of expressions in the right hand side of an assignment statement: (min, max)
     "expressionDepthRange": [<int>, <int>],
 
-    -- Tunes the probability for accessing the innermost dimension of an array: positive integer
+    -- Tunes the probability for accessing the outermost dimensions of an array: positive integer
     "weightCoeffForDims": <int>,
 
     -- The number of total functions generated
@@ -47,6 +47,9 @@ Here's the description of the parameters that are passed to the fuzzer. ("--" is
 
     -- Number of times an outer loop statement is repeated
     "repeatFactor": <int>,
+    
+    -- The minimum time the loops should be executed
+    "timeLimit": <float>
 
     -- Allow reduction operation
     "allowReduction": bool

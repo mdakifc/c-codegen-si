@@ -4,12 +4,13 @@ import Common
 import CommonGen
 import Control.Monad
 import Control.Monad.Trans.State
-import Data.IntMap               qualified as IntMap
-import Data.Vector               qualified as V
+import Data.IntMap                 qualified as IntMap
+import Data.Vector                 qualified as V
 import Language.C.Data.Ident
-import Language.C.Data.Node      (undefNode)
-import Language.C.Data.Position  (nopos)
+import Language.C.Data.Node        (undefNode)
+import Language.C.Data.Position    (nopos)
 import Language.C.Syntax.AST
+import Language.C.Syntax.Constants (cFloat)
 import Selectors
 
 genFor :: Int -> GState CStat
@@ -124,23 +125,40 @@ constructFor mLabel hoistedVar activeIndexes body =
 
 -- The corresponding statement will be repeated by the `repeatFactor`
 -- Effectful, since it generates an index variable but doesn't update the singleton list
-genRepeatedStatement :: Int -> CStat -> GState CStat
+genRepeatedStatement :: Int -> CStat -> GState [CBlockItem]
 genRepeatedStatement repeatFactor stat = do
+  limitStartIdent <- gets nId >>= \n -> createIdent ("limit_start" ++ show n)
+  timeLimitExpr :: CExpr <- gets timeLimit >>= (\num -> pure $ CConst (CFloatConst (cFloat num) undefNode))
   cNameId <- getId
   let
+      limitStartDecl :: CDecl = constructClockTDecl stdFuncIdents limitStartIdent
+      clockLimitStartAssign :: CStat = constructClockCallStat stdFuncIdents limitStartIdent
       name :: String = "i"
       ident :: Ident = mkIdent nopos name cNameId
       decl :: CDecl = constructSingleton ident DInt (Just constructInitializerZero)
       indexExpr :: CExpr = CVar ident undefNode
-      conditionExpr :: CExpr = CBinary CLeOp indexExpr (constructConstExpr $ fromIntegral repeatFactor) undefNode
+      repeatFactorCond :: CExpr =
+        CBinary CLeOp indexExpr (constructConstExpr $ fromIntegral repeatFactor) undefNode
+      currentClockExpr :: CExpr = CCall (CVar (stdFuncIdents V.! fromEnum CClock) undefNode) [] undefNode
+      currentClockCycles :: CExpr = CBinary CSubOp currentClockExpr (CVar limitStartIdent undefNode) undefNode
+      maxClockCycles :: CExpr = CBinary CMulOp timeLimitExpr (CVar (stdFuncIdents V.! fromEnum CCLOCKS_PER_SEC) undefNode) undefNode
+      timeLimitCond :: CExpr =
+        CBinary CLeOp currentClockCycles maxClockCycles undefNode
+      conditionExpr :: CExpr =
+        -- i < repeatFactor || (clock() - limit_start) < <time-limit>
+        CBinary CLorOp repeatFactorCond timeLimitCond undefNode
       updateExpr :: CExpr = CUnary CPostIncOp indexExpr undefNode
-  pure $
-    CFor
-      (Right decl)
-      (Just conditionExpr)
-      (Just updateExpr)
-      stat
-      undefNode
+      forStat =
+        CFor
+          (Right decl)
+          (Just conditionExpr)
+          (Just updateExpr)
+          stat
+          undefNode
+  pure [ CBlockDecl limitStartDecl
+       , CBlockStmt clockLimitStartAssign
+       , CBlockStmt forStat
+       ]
 
 constructPragmaLabel :: Ident -> CStat -> CStat
 constructPragmaLabel ident targetStat = CLabel ident targetStat [] undefNode

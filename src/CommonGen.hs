@@ -374,3 +374,36 @@ constructRandomValue stdFunctionIdents dtype =
       in expr4
     _ -> randCallExpr
 
+-- Declares the identifier to be `struct timeval` type
+constructTimeValDecl :: StdFunctions -> Ident -> CDecl
+constructTimeValDecl stdFunctionIdents ident =
+  let
+    structTimeval :: CStructUnion =
+      CStruct
+      CStructTag
+      (Just $ stdFunctionIdents V.! fromEnum CStructTimeVal)
+      Nothing
+      []
+      undefNode
+  in CDecl
+    [CTypeSpec (CSUType structTimeval undefNode)]
+    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
+    undefNode
+
+constructGetTimeOfDay :: StdFunctions -> Ident -> CExpr
+constructGetTimeOfDay stdFunctionIdents arg1Ident =
+  let arg1 :: CExpr = CUnary CAdrOp (CVar arg1Ident undefNode) undefNode
+  in CCall (CVar (stdFunctionIdents V.! fromEnum CGetTimeOfDay) undefNode) [arg1, constructConstExpr 0] undefNode
+
+constructClockTDecl :: StdFunctions -> Ident -> CDecl
+constructClockTDecl stdFunctionIdents ident =
+  CDecl
+    [CTypeSpec (CTypeDef (stdFunctionIdents V.! fromEnum CClockT) undefNode)]
+    [(Just $ constructSingletonDeclr ident, Nothing, Nothing)]
+    undefNode
+
+constructClockCallStat :: StdFunctions -> Ident -> CStat
+constructClockCallStat stdFunctionIdents ident =
+  let lhs :: CExpr = CVar ident undefNode
+      rhs :: CExpr = CCall (CVar (stdFunctionIdents V.! fromEnum CClock) undefNode) [] undefNode
+  in flip CExpr undefNode . Just $ CAssign CAssignOp lhs rhs undefNode

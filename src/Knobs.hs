@@ -22,6 +22,7 @@ data Knobs = Knobs
   , knobTargetDTypes         :: [DType]
   , knobUseModsInOuterLoop   :: Bool
   , knobRepeatFactor         :: Int
+  , knobTimeLimit            :: Float
   , knobAllowReduction       :: Bool
   }
   deriving (Eq, Show)
@@ -44,6 +45,7 @@ instance FromJSON Knobs where
         <*> v .: "targetDTypes"
         <*> v .: "useModsInOuterLoop"
         <*> v .: "repeatFactor"
+        <*> v .: "timeLimit"
         <*> v .: "allowReduction"
 
 loadKnobs :: FilePath -> IO (Maybe Knobs)
