@@ -125,16 +125,19 @@ constructFor mLabel hoistedVar activeIndexes body =
 
 -- The corresponding statement will be repeated by the `repeatFactor`
 -- Effectful, since it generates an index variable but doesn't update the singleton list
-genRepeatedStatement :: Int -> CStat -> GState [CBlockItem]
-genRepeatedStatement repeatFactor stat = do
+genRepeatedStatement :: Int -> String -> CStat ->  GState [CBlockItem]
+genRepeatedStatement repeatFactor formatString stat = do
   limitStartIdent <- gets nId >>= \n -> createIdent ("limit_start" ++ show n)
   timeLimitExpr :: CExpr <- gets timeLimit >>= (\num -> pure $ CConst (CFloatConst (cFloat num) undefNode))
-  cNameId <- getId
   let
       limitStartDecl :: CDecl = constructClockTDecl stdFuncIdents limitStartIdent
       clockLimitStartAssign :: CStat = constructClockCallStat stdFuncIdents limitStartIdent
-      name :: String = "i"
-      ident :: Ident = mkIdent nopos name cNameId
+      execTimeIdentExpr :: CExpr = CVar (stdFuncIdents V.! fromEnum IExecTime) undefNode
+      execTimeAssign :: CStat =
+        let
+          execTimeZeroValExpr :: CExpr = CConst (flip CFloatConst undefNode $ cFloat 0)
+        in flip CExpr undefNode . Just $ CAssign CAssignOp execTimeIdentExpr execTimeZeroValExpr undefNode
+      ident :: Ident = stdFuncIdents  V.! fromEnum Ii
       decl :: CDecl = constructSingleton ident DInt (Just constructInitializerZero)
       indexExpr :: CExpr = CVar ident undefNode
       repeatFactorCond :: CExpr =
@@ -157,7 +160,14 @@ genRepeatedStatement repeatFactor stat = do
           undefNode
   pure [ CBlockDecl limitStartDecl
        , CBlockStmt clockLimitStartAssign
+       , CBlockStmt execTimeAssign
        , CBlockStmt forStat
+       , CBlockStmt . flip CExpr undefNode . Just $
+         constructFprintf
+           (stdFuncIdents V.! fromEnum CStderr)
+           stdFuncIdents
+           formatString
+           [execTimeIdentExpr]
        ]
 
 constructPragmaLabel :: Ident -> CStat -> CStat

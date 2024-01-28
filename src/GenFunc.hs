@@ -134,10 +134,13 @@ genFuncBody = do
   nLoops <- gets noLoopRange >>= execRandGen
   nHVars <- gets ((2*) . snd . loopDepthRange)
   hoistedVarDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genHoistedVars nHVars
+  execTimeDecl :: CBlockItem <- do
+    ident <- createIdent "exec_time"
+    pure . CBlockDecl $ constructSingleton ident DDouble Nothing
   body :: [CBlockItem] <- fmap concat . replicateM nLoops $ do
     noNestedFor <- gets nestedLoopRange >>= execRandGen
     targetStat <- genFor noNestedFor
-    wrappedTargetStatWithTime <- genWrappedTimeWithClock stdFunctionIdents "Execution Time of the loop: %lf\n" [CBlockStmt targetStat]
+    wrappedTargetStatWithTime <- genWrappedTimeWithClock stdFunctionIdents [CBlockStmt targetStat]
     effectfulStats :: [CStat] <- do
       usedExpressions <- gets expressionBucket
       res <- for usedExpressions $ \expr -> do
@@ -145,12 +148,15 @@ genFuncBody = do
       modify' $ \s -> s { expressionBucket = [] }
       pure res
     do repeatFactor' <- gets repeatFactor
-       genRepeatedStatement repeatFactor' $ CCompound [] (wrappedTargetStatWithTime ++ (CBlockStmt <$> effectfulStats)) undefNode
+       let indexExpr :: CExpr = CVar (stdFuncIdents V.! fromEnum Ii) undefNode
+           printIndexOfTheRepeatLoop :: CStat =
+             flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d: " [indexExpr]
+       genRepeatedStatement repeatFactor' "Execution Time of the loop: %lf\n" $ CCompound [] (wrappedTargetStatWithTime ++ (CBlockStmt <$> printIndexOfTheRepeatLoop:effectfulStats)) undefNode
 
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
   -- Define a hoisted Variable
-  pure $ CCompound [] ([srandStat] ++ declAndInitStats ++ hoistedVarDecls ++ body) undefNode
+  pure $ CCompound [] ([srandStat, execTimeDecl] ++ declAndInitStats ++ hoistedVarDecls ++ body) undefNode
 
 -- Description: Allocates memory and initializes the ith array with the given dtype.
 -- Effectful: Update parameters and array dims if applicable (Nothing -> Just <ident>)
@@ -360,8 +366,8 @@ genWrappedTime stdFunctionIdents formatString targetItems = do
       , CBlockStmt $ CExpr (Just $ constructFprintf (stdFuncIdents V.! fromEnum CStderr) stdFunctionIdents formatString [computeElapsedTimeExpr]) undefNode
       ]
 
-genWrappedTimeWithClock :: StdFunctions -> String -> [CBlockItem] -> GState [CBlockItem]
-genWrappedTimeWithClock stdFunctionIdents formatString targetItems = do
+genWrappedTimeWithClock :: StdFunctions -> [CBlockItem] -> GState [CBlockItem]
+genWrappedTimeWithClock stdFunctionIdents targetItems = do
   startIdent <- gets nId >>= \n -> createIdent ("start" ++ show n)
   endIdent <- gets nId >>= \n -> createIdent ("end" ++ show n)
   let
@@ -381,6 +387,9 @@ genWrappedTimeWithClock stdFunctionIdents formatString targetItems = do
           expr2 :: CExpr = CVar (stdFunctionIdents V.! fromEnum CCLOCKS_PER_SEC) undefNode
           expr3 :: CExpr = CCast (mDtypeToCTypeDecl (Just DDouble)) expr1 undefNode
       in CBinary CDivOp expr3 expr2 undefNode
+    execTimeIdentExpr :: CExpr = CVar (stdFuncIdents V.! fromEnum IExecTime) undefNode
+    addToExecTime :: CExpr =
+      CAssign CAddAssOp execTimeIdentExpr computeElapsedTimeExpr undefNode
   pure $
     [
       CBlockDecl startDecl
@@ -390,11 +399,5 @@ genWrappedTimeWithClock stdFunctionIdents formatString targetItems = do
     ++ targetItems ++
     [
       CBlockStmt clockEndAssign
-    , CBlockStmt . flip CExpr undefNode . Just $
-        constructFprintf
-          (stdFunctionIdents V.! fromEnum CStderr)
-          stdFunctionIdents
-          formatString
-          [computeElapsedTimeExpr]
+    , CBlockStmt . flip CExpr undefNode . Just $ addToExecTime
     ]
-
