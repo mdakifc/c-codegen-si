@@ -151,7 +151,12 @@ genFuncBody = do
        let indexExpr :: CExpr = CVar (stdFuncIdents V.! fromEnum Ii) undefNode
            printIndexOfTheRepeatLoop :: CStat =
              flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d: " [indexExpr]
-       genRepeatedStatement repeatFactor' "Execution Time of the loop: %lf\n" $ CCompound [] (wrappedTargetStatWithTime ++ (CBlockStmt <$> printIndexOfTheRepeatLoop:effectfulStats)) undefNode
+           printCurrentExecTime :: CStat =
+             flip CExpr undefNode . Just $
+               constructFprintf (stdFuncIdents V.! fromEnum CStderr)
+               stdFunctionIdents "Execution Time of the loop: %lf\n"
+               [CVar (stdFuncIdents V.! fromEnum IExecTime) undefNode]
+       genRepeatedStatement repeatFactor' "Execution Time of the loop: %lf\n" $ CCompound [] (wrappedTargetStatWithTime ++ (CBlockStmt <$> printIndexOfTheRepeatLoop:printCurrentExecTime:effectfulStats)) undefNode
 
   -- timeWrappedDeclAndInitStats :: [CBlockItem] <-
   --   genWrappedTime stdFunctionIdents "Execution Time of declaration and initialization: %lf\n" declAndInitStats
