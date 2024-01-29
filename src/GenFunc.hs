@@ -150,7 +150,7 @@ genFuncBody = do
     do repeatFactor' <- gets repeatFactor
        let indexExpr :: CExpr = CVar (stdFuncIdents V.! fromEnum Ii) undefNode
            printIndexOfTheRepeatLoop :: CStat =
-             flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "%d: " [indexExpr]
+             flip CExpr undefNode . Just $ constructPrintf stdFuncIdents "\n%d: " [indexExpr]
            printCurrentExecTime :: CStat =
              flip CExpr undefNode . Just $
                constructFprintf (stdFuncIdents V.! fromEnum CStderr)
