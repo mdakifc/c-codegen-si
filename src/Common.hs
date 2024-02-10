@@ -14,7 +14,8 @@ import System.Random
 
 -- Standard Library Functions
 data StdFunc = CMalloc | CPrintf | CFprintf | CRand | CSRand | CScanf | CGetTimeOfDay | CStructTimeVal
-             | CMin | CMax | CAp | CStderr | CClock | CClockT | CCLOCKS_PER_SEC | IExecTime | Ii
+             | CMin | CMax | CAp | CStderr | CClock | CClockT | CCLOCKS_PER_SEC | IExecTime | Ii | MREPEAT_COND
+             | MEFFECT_MOD
     deriving (Eq, Show, Enum, Bounded)
 
 -- Defined types
@@ -175,3 +176,5 @@ stdFuncName v =
     CCLOCKS_PER_SEC -> "CLOCKS_PER_SEC"
     IExecTime       -> "exec_time"
     Ii              -> "i"
+    MREPEAT_COND    -> "REPEAT_COND"
+    MEFFECT_MOD     -> "EFFECT_MOD"

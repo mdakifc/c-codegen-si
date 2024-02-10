@@ -138,8 +138,8 @@ genRepeatedStatement repeatFactor formatString stat = do
           execTimeZeroValExpr :: CExpr = CConst (flip CFloatConst undefNode $ cFloat 0)
         in flip CExpr undefNode . Just $ CAssign CAssignOp execTimeIdentExpr execTimeZeroValExpr undefNode
       ident :: Ident = stdFuncIdents  V.! fromEnum Ii
-      decl :: CDecl = constructSingleton ident DInt (Just constructInitializerZero)
       indexExpr :: CExpr = CVar ident undefNode
+      initExpr :: CExpr = CAssign CAssignOp indexExpr (constructConstExpr 0) undefNode
       repeatFactorCond :: CExpr =
         CBinary CLeOp indexExpr (constructConstExpr $ fromIntegral repeatFactor) undefNode
       currentClockExpr :: CExpr = CCall (CVar (stdFuncIdents V.! fromEnum CClock) undefNode) [] undefNode
@@ -150,11 +150,18 @@ genRepeatedStatement repeatFactor formatString stat = do
       conditionExpr :: CExpr =
         -- i < repeatFactor || (clock() - limit_start) < <time-limit>
         CBinary CLorOp repeatFactorCond timeLimitCond undefNode
+      wrappedConditionExpr :: CExpr =
+        CCall (CVar (stdFuncIdents V.! fromEnum MREPEAT_COND) undefNode) [conditionExpr] undefNode
       updateExpr :: CExpr = CUnary CPostIncOp indexExpr undefNode
+      printTripCount :: CStat = flip CExpr undefNode . Just $
+        constructFprintf (stdFuncIdents V.! fromEnum CStderr)
+                         stdFuncIdents
+                         "Trip Count: %d\n"
+                         [indexExpr]
       forStat =
         CFor
-          (Right decl)
-          (Just conditionExpr)
+          (Left (Just initExpr))
+          (Just wrappedConditionExpr)
           (Just updateExpr)
           stat
           undefNode
@@ -168,6 +175,7 @@ genRepeatedStatement repeatFactor formatString stat = do
            stdFuncIdents
            formatString
            [execTimeIdentExpr]
+       , CBlockStmt printTripCount     -- Print trip count
        ]
 
 constructPragmaLabel :: Ident -> CStat -> CStat

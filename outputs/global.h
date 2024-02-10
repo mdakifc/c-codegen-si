@@ -3,6 +3,14 @@
 #include <sys/time.h>
 #include <stdarg.h>
 #include <time.h>
+#ifdef TRIP_COUNT
+    #define REPEAT_COND(cond) (i < TRIP_COUNT)
+#else
+    #define REPEAT_COND(cond) (cond)
+#endif
+#ifndef EFFECT_MOD
+    #define EFFECT_MOD 10
+#endif
 
 #define MAX(...) \
     ({ \
