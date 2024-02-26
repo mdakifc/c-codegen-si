@@ -105,15 +105,11 @@ updateActiveIndex indexKey constLit binOp arraySizeExpr = do
 
 genLValueExpr :: DType -> GState CExpr
 genLValueExpr dtype = do
-    p :: Int <- execRandGen(0,1)
-    case p of
-        -- Access
-        0 -> do
-            (arrayExpr, arrayExprMod) <- genArrayAccessExpr dtype
-            modify' (\s -> s { expressionBucket = arrayExprMod:expressionBucket s})
-            pure arrayExpr
+    p :: Bool <- toEnum <$> execRandGen(0,1)
+    red <- gets allowReduction
+    if p && red
         -- Singleton
-        1 -> do
+        then do
             mKI <- chooseSingleton dtype True
             case mKI of
                 Just (key, ident) -> do
@@ -124,7 +120,11 @@ genLValueExpr dtype = do
                         }
                     pure expr
                 Nothing -> genLValueExpr dtype
-        _ -> undefined
+        -- Access
+        else do
+            (arrayExpr, arrayExprMod) <- genArrayAccessExpr dtype
+            modify' (\s -> s { expressionBucket = arrayExprMod:expressionBucket s})
+            pure arrayExpr
 
 
 genRValueExpr :: DType -> Int -> GState CExpr
