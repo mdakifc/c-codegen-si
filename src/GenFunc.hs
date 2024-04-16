@@ -132,7 +132,7 @@ genFuncBody = do
     allocAndInit ::  [CBlockItem] <- (concat <$>) . for arrKeys $ fmap (CBlockStmt <$>) . genAllocateAndInitialize dtype
     pure $ singletonDecls ++ arrDecls ++ indexDecls ++ allocAndInit
   nLoops <- gets noLoopRange >>= execRandGen
-  nHVars <- gets ((2*) . snd . loopDepthRange)
+  nHVars <- gets ((2*) . snd . nestedLoopRange)
   hoistedVarDecls :: [CBlockItem] <- (CBlockDecl <$>) <$> genHoistedVars nHVars
   execTimeDecl :: CBlockItem <- do
     ident <- createIdent "exec_time"
